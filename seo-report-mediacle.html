@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weekly SEO Report - Mediacle</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6;
+            color: #2c3e50;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .header .date-range {
+            font-size: 1.2rem;
+            opacity: 0.95;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .section {
+            margin-bottom: 40px;
+        }
+        
+        .section-title {
+            color: #667eea;
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .key-takeaway {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 25px;
+            border-radius: 15px;
+            border-left: 5px solid #667eea;
+            font-size: 1.1rem;
+            margin-bottom: 30px;
+        }
+        
+        .keyword-group {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .keyword-group h3 {
+            color: #764ba2;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+        
+        .keyword-item {
+            padding: 10px;
+            margin: 10px 0;
+            background: white;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .keyword-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        
+        .brand-name {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .position {
+            font-weight: 500;
+            padding: 5px 12px;
+            border-radius: 20px;
+            background: #e3e8f0;
+            font-size: 0.9rem;
+        }
+        
+        .position.improved {
+            background: #d4f4dd;
+            color: #27ae60;
+        }
+        
+        .position.dropped {
+            background: #ffd6d6;
+            color: #e74c3c;
+        }
+        
+        .position.stable {
+            background: #fff3cd;
+            color: #f39c12;
+        }
+        
+        .brand-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+        
+        .brand-card h3 {
+            color: #667eea;
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+        }
+        
+        .traffic-status {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 25px;
+            font-weight: 500;
+            margin-bottom: 15px;
+            font-size: 0.95rem;
+        }
+        
+        .traffic-improved {
+            background: #d4f4dd;
+            color: #27ae60;
+        }
+        
+        .traffic-stable {
+            background: #fff3cd;
+            color: #f39c12;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            overflow: hidden;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+        
+        th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+        
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #e0e6ed;
+            background: white;
+        }
+        
+        tr:hover td {
+            background: #f8f9fa;
+        }
+        
+        tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .link-cell {
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .link-cell a {
+            color: #667eea;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+        
+        .link-cell a:hover {
+            text-decoration: underline;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        
+        .status-published {
+            background: #d4f4dd;
+            color: #27ae60;
+        }
+        
+        .status-pending {
+            background: #fff3cd;
+            color: #f39c12;
+        }
+        
+        .status-sent {
+            background: #e3e8f0;
+            color: #5a6c7d;
+        }
+        
+        .footer-info {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 30px;
+            border-radius: 15px;
+            margin-top: 30px;
+        }
+        
+        .footer-info h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+        
+        .icon {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Weekly SEO Report - Mediacle</h1>
+            <div class="date-range">September 17 - September 23, 2025</div>
+        </div>
+        
+        <div class="content">
+            <div class="section">
+                <div class="key-takeaway">
+                    <strong>Key Takeaways:</strong> Traffic is stable across brands with some recovery.
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2 class="section-title">📊 Keyword Performance</h2>
+                
+                <div class="keyword-group">
+                    <h3>Online Casino</h3>
+                    <div class="keyword-item">
+                        <span class="brand-name">TheOnlineCasino</span>
+                        <span class="position">NR</span>
+                    </div>
+                    <div class="keyword-item">
+                        <span class="brand-name">Swift Casino</span>
+                        <span class="position">NR</span>
+                    </div>
+                    <div class="keyword-item">
+                        <span class="brand-name">Monster</span>
+                        <span class="position">NR</span>
+                    </div>
+                </div>
+                
+                <div class="keyword-group">
+                    <h3>Online Casino UK</h3>
+                    <div class="keyword-item">
+                        <span class="brand-name">TheOnlineCasino</span>
+                        <span class="position">NR</span>
+                    </div>
+                    <div class="keyword-item">
+                        <span class="brand-name">SwiftCasino</span>
+                        <span class="position improved">92nd Position (Improved from 94th Position)</span>
+                    </div>
+                </div>
+                
+                <div class="keyword-group">
+                    <h3>Mobile Casino</h3>
+                    <div class="keyword-item">
+                        <span class="brand-name">JMC</span>
+                        <span class="position improved">7th Position (Improved from 8th Position)</span>
+                    </div>
+                    <div class="keyword-item">
+                        <span class="brand-name">Monster</span>
+                        <span class="position improved">26th position (Improved from 34th Position)</span>
+                    </div>
+                    <div class="keyword-item">
+                        <span class="brand-name">TheOnlineCasino</span>
+                        <span class="position dropped">14th Position (Drop from 9th Position)</span>
+                    </div>
+                    <div class="keyword-item">
+                        <span class="brand-name">Swift Casino</span>
+                        <span class="position dropped">46th Position (Drop from 28th Position)</span>
+                    </div>
+                </div>
+                
+                <div class="keyword-group">
+                    <h3>Online Casino Real Money</h3>
+                    <div class="keyword-item">
+                        <span class="brand-name">TOC</span>
+                        <span class="position stable">23rd Position (Stable)</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2 class="section-title">🎯 Brand Performance Analysis</h2>
+                
+                <div class="brand-card">
+                    <h3>Monster Casino</h3>
+                    <div class="traffic-status traffic-improved">Traffic Status: Traffic has improved compared to last week.</div>
+                    <div><strong>Keywords:</strong></div>
+                    <ul style="margin-left: 20px; margin-top: 10px;">
+                        <li>online casino - NR</li>
+                        <li>online casino uk - NR</li>
+                        <li>mobile casino - 26th position (Improved from 34th Position)</li>
+                        <li>mobile slots - 28th position (Stable)</li>
+                        <li>casino - NR</li>
+                    </ul>
+                </div>
+                
+                <div class="brand-card">
+                    <h3>TheOnlineCasino</h3>
+                    <div class="traffic-status traffic-stable">Traffic Status: Traffic is stable compared to last week.</div>
+                    <div><strong>Keywords:</strong></div>
+                    <ul style="margin-left: 20px; margin-top: 10px;">
+                        <li>online casino - NR</li>
+                        <li>online casino uk - NR</li>
+                        <li>online casino real money - 23rd (Stable)</li>
+                        <li>TheOnlineCasino - 14th Position (Drop from 9th Position)</li>
+                        <li>casino - NR</li>
+                        <li>mobile slots - 22nd Position ( Drop from 17th)</li>
+                    </ul>
+                </div>
+                
+                <div class="brand-card">
+                    <h3>SwiftCasino</h3>
+                    <div class="traffic-status traffic-stable">Traffic Status: Traffic is stable compared to last week.</div>
+                    <div><strong>Keywords:</strong></div>
+                    <ul style="margin-left: 20px; margin-top: 10px;">
+                        <li>online casino - NR</li>
+                        <li>online casino uk - 92nd Position (Improved from 94th)</li>
+                        <li>mobile casino - 46th Position (Drop from 28th Position)</li>
+                    </ul>
+                </div>
+                
+                <div class="brand-card">
+                    <h3>JMC</h3>
+                    <div class="traffic-status traffic-stable">Traffic Status: No change in traffic compared to last week.</div>
+                    <div><strong>Keywords:</strong></div>
+                    <ul style="margin-left: 20px; margin-top: 10px;">
+                        <li>mobile casino - 7th Position (Improved from 8th Position)</li>
+                        <li>mobile slots - 37th (Stable)</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2 class="section-title">📝 Content Addition</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Content Name</th>
+                            <th>Brand</th>
+                            <th>Link</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Jackpot Raider</td>
+                            <td>SwiftCasino</td>
+                            <td class="link-cell"><a href="https://docs.google.com/document/d/1pUPsMLWoJYkNRF02RstnNtNjNu6zuj56gqRcZdjqM88/edit?tab=t.0#heading=h.7pyxns55k2o1" target="_blank">View Document</a></td>
+                            <td><span class="status-badge status-sent">Sent today, delay from SEO Team</span></td>
+                        </tr>
+                        <tr>
+                            <td>Golden Winner</td>
+                            <td>SwiftCasino</td>
+                            <td class="link-cell"><a href="https://docs.google.com/document/d/1rZHH-_GGi93wBNniwBhNpWs9VFfupf-dAdSyj229cLk/edit?usp=sharing" target="_blank">View Document</a></td>
+                            <td><span class="status-badge status-sent">Sent today, delay from SEO Team</span></td>
+                        </tr>
+                        <tr>
+                            <td>Gold Blitz</td>
+                            <td>SwiftCasino</td>
+                            <td class="link-cell"><a href="https://docs.google.com/document/d/1QbeqQrmEANuKPzmFOCQciB2AG9MOy49uS5UYiZxYIS0/edit?usp=sharing" target="_blank">View Document</a></td>
+                            <td><span class="status-badge status-sent">Sent today, delay from SEO Team</span></td>
+                        </tr>
+                        <tr>
+                            <td>Golden Genie</td>
+                            <td>SwiftCasino</td>
+                            <td class="link-cell"><a href="https://docs.google.com/document/d/1i5Su2hZ84HG2ejWNQaElppTm23vcGPZXE45BL2x-7Ro/edit?usp=sharing" target="_blank">View Document</a></td>
+                            <td><span class="status-badge status-sent">Sent today, delay from SEO Team</span></td>
+                        </tr>
+                        <tr>
+                            <td>Great Rhino Megaways</td>
+                            <td>Betrino</td>
+                            <td class="link-cell"><a href="https://docs.google.com/document/d/1kcIQLeCkc5G6DBgqEKTP0NzBJ2EATRYvr8qx-BeOAP0/edit?tab=t.0#heading=h.2x1eihqtw0kt" target="_blank">View Document</a></td>
+                            <td><span class="status-badge status-sent">Sent today, delay from SEO Team</span></td>
+                        </tr>
+                        <tr>
+                            <td>Le Bandit</td>
+                            <td>Monster Casino</td>
+                            <td class="link-cell"><a href="https://docs.google.com/document/d/1qAwWtR4umiDu0wrQ5qZRZJNR3dxDisHxDThKMPJj1Bs/edit?usp=sharing" target="_blank">View Document</a></td>
+                            <td><span class="status-badge status-sent">Sent today, delay from SEO Team</span></td>
+                        </tr>
+                        <tr>
+                            <td>Return of Kong Megaways</td>
+                            <td>Jackpot Mobile Casino</td>
+                            <td class="link-cell"><a href="https://docs.google.com/document/d/1D3TjcCchv1BmNH_KbrhRJY5NhlgImpZJ-fsKNrp7SC4/edit?tab=t.0" target="_blank">View Document</a></td>
+                            <td><span class="status-badge status-sent">Sent today, delay from SEO Team</span></td>
+                        </tr>
+                        <tr>
+                            <td>Magic Spins</td>
+                            <td>The Online Casino</td>
+                            <td class="link-cell"><a href="https://docs.google.com/document/d/1_MZEhSS4G8GuoQWb57aQagV4kZF7UZnOQL6_kgZi4Wg/edit?usp=sharing" target="_blank">View Document</a></td>
+                            <td><span class="status-badge status-sent">Sent today, delay from SEO Team</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="section">
+                <h2 class="section-title">🔗 Backlinks</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Publisher</th>
+                            <th>Brand</th>
+                            <th>Link</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>HistoryFiles</td>
+                            <td>Swift Casino</td>
+                            <td class="link-cell"><a href="https://www.historyfiles.co.uk/support/historyES282-The-First-Gentlemans-Club.htm" target="_blank">View Link</a></td>
+                            <td><span class="status-badge status-published">Published</span></td>
+                        </tr>
+                        <tr>
+                            <td>1883Magazine</td>
+                            <td>TheOnlineCasino</td>
+                            <td class="link-cell"><a href="https://1883magazine.com/why-people-should-take-a-trip-to-madrid/" target="_blank">View Link</a></td>
+                            <td><span class="status-badge status-published">Published</span></td>
+                        </tr>
+                        <tr>
+                            <td>ArcadePunks</td>
+                            <td>Betmaze</td>
+                            <td class="link-cell"><a href="https://www.arcadepunks.com/why-betmaze-could-be-the-best-choice-for-new-bettors/" target="_blank">View Link</a></td>
+                            <td><span class="status-badge status-published">Published</span></td>
+                        </tr>
+                        <tr>
+                            <td>Ohsem.me</td>
+                            <td>Alfobet</td>
+                            <td class="link-cell"><a href="https://docs.google.com/document/d/1_NOdBXrWu5BPubl7Dxy5mGpEaTzhTGNFmmw8PxeTT7I/edit?tab=t.0#heading=h.yu3kqjicw5g6" target="_blank">View Document</a></td>
+                            <td><span class="status-badge status-pending">Pending with publisher.</span></td>
+                        </tr>
+                        <tr>
+                            <td>PantheonUK</td>
+                            <td>Betmaze</td>
+                            <td class="link-cell"><a href="https://pantheonuk.org/betmaze-a-platform-built-for-everyone/" target="_blank">View Link</a></td>
+                            <td><span class="status-badge status-published">Published</span></td>
+                        </tr>
+                        <tr>
+                            <td>Gypsynester</td>
+                            <td>Betmaze</td>
+                            <td class="link-cell"><a href="https://docs.google.com/document/d/1cbS-iRtzYi41eizniepsx43YNl2j39kRw-zAgF2HXDA/edit?usp=sharing" target="_blank">View Document</a></td>
+                            <td><span class="status-badge status-pending">Pending with publisher.</span></td>
+                        </tr>
+                        <tr>
+                            <td>NewMiddleclassDad</td>
+                            <td>Betmaze</td>
+                            <td class="link-cell"><a href="https://docs.google.com/document/d/1GMgGHjRX9bmzk_yG_Yu3g-u4NwveqIOneRbeUfzALCM/edit?tab=t.0" target="_blank">View Document</a></td>
+                            <td><span class="status-badge status-pending">Pending with publisher</span></td>
+                        </tr>
+                        <tr>
+                            <td>talkfootball.co.uk</td>
+                            <td>MonsterCasino</td>
+                            <td class="link-cell">Writing Article</td>
+                            <td><span class="status-badge status-pending">Pending with SEO Team</span></td>
+                        </tr>
+                        <tr>
+                            <td>footballzz.co.uk</td>
+                            <td>MonsterCasino</td>
+                            <td class="link-cell">Writing Article</td>
+                            <td><span class="status-badge status-pending">Pending with SEO Team</span></td>
+                        </tr>
+                        <tr>
+                            <td>afootballreport.com</td>
+                            <td>MonsterCasino</td>
+                            <td class="link-cell">Writing Article</td>
+                            <td><span class="status-badge status-pending">Pending with SEO Team</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 10px;">
+                    <strong>Backlink Spent September:</strong> $662
+                </div>
+            </div>
+            
+            <div class="footer-info">
+                <h3>MARS Brand Addition</h3>
+                <p><strong>Period:</strong> 17th Sep 2025 - 23rd Sep 2025</p>
+                <p><strong>Total No of Brands Added:</strong> 51</p>
+                <p><strong>Location:</strong> Ecuador, Chile, Hungary</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
