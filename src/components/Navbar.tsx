@@ -14,6 +14,7 @@ import {
   XMarkIcon,
   BuildingOfficeIcon,
   ChevronDownIcon,
+  PencilSquareIcon,
 } from '@heroicons/react/24/outline'
 import { useState, useRef, useEffect } from 'react'
 
@@ -22,6 +23,7 @@ const navigation = [
   { name: 'App Rankings', href: '/app-rankings', icon: ChartBarIcon },
   { name: 'Brands', href: '/brands', icon: BuildingOfficeIcon },
   { name: 'Keywords', href: '/keywords', icon: DocumentTextIcon },
+  { name: 'Articles', href: '/writer/articles', icon: PencilSquareIcon },
   { name: 'Backlinks', href: '/backlinks', icon: LinkIcon },
 ]
 

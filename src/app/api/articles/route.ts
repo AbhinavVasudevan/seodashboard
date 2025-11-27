@@ -17,8 +17,21 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const brandId = searchParams.get('brandId')
 
+    // Build where clause based on user role
+    // Writers can only see their own articles, Admins and SEO can see all
+    const whereClause: any = {}
+
+    if (brandId) {
+      whereClause.brandId = brandId
+    }
+
+    // If user is a WRITER, only show their own articles
+    if (session.user?.role === 'WRITER') {
+      whereClause.requestedById = session.user.id
+    }
+
     const articles = await prisma.article.findMany({
-      where: brandId ? { brandId } : undefined,
+      where: whereClause,
       include: {
         brand: {
           select: {

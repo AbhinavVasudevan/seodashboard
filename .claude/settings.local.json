@@ -17,7 +17,9 @@
       "Bash(gh auth:*)",
       "Bash(git remote add:*)",
       "Bash(git push:*)",
-      "Bash(openssl rand:*)"
+      "Bash(openssl rand:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []

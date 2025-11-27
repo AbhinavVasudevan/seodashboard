@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,61 +5,54 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL") // Used for migrations (bypasses connection pooler)
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  password  String   @default("")
-  role      UserRole @default(WRITER)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  brands          Brand[]
+  id                String    @id @default(cuid())
+  email             String    @unique
+  name              String?
+  password          String    @default("")
+  role              UserRole  @default(WRITER)
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
   requestedArticles Article[]
+  brands            Brand[]
 
   @@map("users")
 }
 
 model Brand {
-  id          String   @id @default(cuid())
-  name        String
-  domain      String?
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // SEMRush integration fields
+  id                String     @id @default(cuid())
+  name              String
+  domain            String?
+  description       String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
   semrushProjectId  String?
   semrushCampaignId String?
   semrushLastSync   DateTime?
-
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  apps          App[]
-  keywords      Keyword[]
-  backlinks     Backlink[]
-  articles      Article[]
+  userId            String
+  apps              App[]
+  articles          Article[]
+  backlinks         Backlink[]
+  user              User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  keywords          Keyword[]
 
   @@map("brands")
 }
 
 model App {
-  id        String   @id @default(cuid())
-  name      String
-  platform  Platform // ANDROID or IOS
-  country   String?  // Target market country code (e.g., "CA", "DK", "GB")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  brandId String
-  brand   Brand   @relation(fields: [brandId], references: [id], onDelete: Cascade)
-
+  id           String        @id @default(cuid())
+  name         String
+  platform     Platform
+  country      String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  brandId      String
   rankings     AppRanking[]
+  brand        Brand         @relation(fields: [brandId], references: [id], onDelete: Cascade)
   keywords     Keyword[]
   rankTrackers RankTracker[]
 
@@ -78,154 +68,136 @@ model AppRanking {
   traffic   Int?
   date      DateTime
   createdAt DateTime @default(now())
-  
-  appId String
-  app   App   @relation(fields: [appId], references: [id], onDelete: Cascade)
-  
+  appId     String
+  app       App      @relation(fields: [appId], references: [id], onDelete: Cascade)
+
   @@unique([appId, keyword, country, date])
   @@map("app_rankings")
 }
 
 model Keyword {
-  id        String   @id @default(cuid())
+  id        String           @id @default(cuid())
   keyword   String
   country   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  brandId String?
-  brand   Brand?   @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  
-  appId String?
-  app   App?   @relation(fields: [appId], references: [id], onDelete: Cascade)
-  
-  rankings KeywordRanking[]
-  
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  brandId   String?
+  appId     String?
+  rankings  KeywordRanking[]
+  app       App?             @relation(fields: [appId], references: [id], onDelete: Cascade)
+  brand     Brand?           @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
   @@unique([brandId, keyword, country])
   @@unique([appId, keyword, country])
   @@map("keywords")
 }
 
 model KeywordRanking {
-  id        String   @id @default(cuid())
-  position  Int
-  url       String?
-  traffic   Int?
+  id           String   @id @default(cuid())
+  position     Int
+  url          String?
+  traffic      Int?
   searchVolume Int?
-  difficulty  Int?
-  cpc       Float?   // Cost per click from SEMRush
-  date      DateTime
-  createdAt DateTime @default(now())
-
-  keywordId String
-  keyword   Keyword @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+  difficulty   Int?
+  cpc          Float?
+  date         DateTime
+  createdAt    DateTime @default(now())
+  keywordId    String
+  keyword      Keyword  @relation(fields: [keywordId], references: [id], onDelete: Cascade)
 
   @@unique([keywordId, date])
   @@map("keyword_rankings")
 }
 
 model RankTracker {
-  id          String   @id @default(cuid())
+  id          String               @id @default(cuid())
   keyword     String
   country     String
   domain      String
-  isActive    Boolean  @default(true)
+  isActive    Boolean              @default(true)
   lastChecked DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  appId String
-  app   App   @relation(fields: [appId], references: [id], onDelete: Cascade)
-  
-  rankings RankTrackerHistory[]
-  
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  appId       String
+  rankings    RankTrackerHistory[]
+  app         App                  @relation(fields: [appId], references: [id], onDelete: Cascade)
+
   @@unique([appId, keyword, country, domain])
   @@map("rank_trackers")
 }
 
 model RankTrackerHistory {
-  id          String   @id @default(cuid())
-  position    Int
-  url         String?
-  traffic     Int?
-  searchVolume Int?
-  difficulty  Int?
-  cpc         Float?
-  competition Float?
-  trend       Int?
-  date        DateTime
-  createdAt   DateTime @default(now())
-  
+  id            String      @id @default(cuid())
+  position      Int
+  url           String?
+  traffic       Int?
+  searchVolume  Int?
+  difficulty    Int?
+  cpc           Float?
+  competition   Float?
+  trend         Int?
+  date          DateTime
+  createdAt     DateTime    @default(now())
   rankTrackerId String
   rankTracker   RankTracker @relation(fields: [rankTrackerId], references: [id], onDelete: Cascade)
-  
+
   @@unique([rankTrackerId, date])
   @@map("rank_tracker_history")
 }
 
 model Backlink {
-  id              String   @id @default(cuid())
-  rootDomain      String
+  id               String         @id @default(cuid())
+  rootDomain       String
   referringPageUrl String
-  dr              Int? // Domain Rating
-  traffic         Int?
-  targetUrl       String
-  anchor          String?
-  dofollow        Boolean  @default(true)
-  status          BacklinkStatus
-  price           Float?
-  builtOn         DateTime?
-  supplierEmail   String?
-  liveFor         Int? // in days
-  invoice         String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  brandId String
-  brand   Brand   @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  
+  dr               Int?
+  traffic          Int?
+  targetUrl        String
+  anchor           String?
+  dofollow         Boolean        @default(true)
+  status           BacklinkStatus
+  price            Float?
+  builtOn          DateTime?
+  supplierEmail    String?
+  liveFor          Int?
+  invoice          String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  brandId          String
+  brand            Brand          @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
   @@map("backlinks")
 }
 
 model Article {
   id              String        @id @default(cuid())
-  slNo            String        @unique // HAJA-NOV-25-001
-
-  // Writer submission fields
-  requestedById   String        // User ID of SEO or Admin who requested
-  requestedBy     User          @relation(fields: [requestedById], references: [id])
+  slNo            String        @unique
+  requestedById   String
   articleType     ArticleType
   brandId         String
-  brand           Brand         @relation(fields: [brandId], references: [id], onDelete: Cascade)
   topicTitle      String
   gameProvider    String?
   primaryKeyword  String?
   finalWordCount  Int?
-  documentUrl     String?       // Location of article document from writer
-
-  // Article status and workflow
+  documentUrl     String?
   status          ArticleStatus @default(SUBMITTED)
-  rejectionReason String?       // Reason for rejection if status is REJECTED
-
-  // SEO processing fields (filled after acceptance)
+  rejectionReason String?
   pageName        String?
-  language        String?       // EN, ES, FR, DE, etc.
-  url             String?       // Final published URL
-  pageType        String?       // Same as articleType
-  contentUrl      String?       // Different copy from writer's documentUrl
-  originalWc      Int?          // Same as finalWordCount
-  writer          String?       // Writer name
-  sentDate        DateTime?     // Date sent to writer
-  publishDate     DateTime?     // Date published
-
-  // Quality checks
+  language        String?
+  url             String?
+  pageType        String?
+  contentUrl      String?
+  originalWc      Int?
+  writer          String?
+  sentDate        DateTime?
+  publishDate     DateTime?
   seoCheck        Boolean       @default(false)
   images          Int?
-  aiScore         Float?        // AI detection score
-  plagiarismScore Float?        // Plagiarism score
-
+  aiScore         Float?
+  plagiarismScore Float?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+  brand           Brand         @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  requestedBy     User          @relation(fields: [requestedById], references: [id])
 
   @@map("articles")
 }
@@ -252,12 +224,12 @@ enum ArticleType {
 }
 
 enum ArticleStatus {
-  SUBMITTED      // Writer submitted, waiting for SEO review
-  REJECTED       // SEO rejected the article
-  ACCEPTED       // SEO accepted, filling in details
-  UNPUBLISHED    // SEO completed details, ready to send to dev
-  SENT_TO_DEV    // Sent to developers for publishing
-  PUBLISHED      // Live on the website
+  SUBMITTED
+  REJECTED
+  ACCEPTED
+  UNPUBLISHED
+  SENT_TO_DEV
+  PUBLISHED
 }
 
 enum UserRole {
