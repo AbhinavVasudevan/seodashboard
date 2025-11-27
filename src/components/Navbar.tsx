@@ -23,7 +23,7 @@ const navigation = [
   { name: 'App Rankings', href: '/app-rankings', icon: ChartBarIcon },
   { name: 'Brands', href: '/brands', icon: BuildingOfficeIcon },
   { name: 'Keywords', href: '/keywords', icon: DocumentTextIcon },
-  { name: 'Articles', href: '/writer/articles', icon: PencilSquareIcon },
+  { name: 'Articles', href: '/articles', icon: PencilSquareIcon },
   { name: 'Backlinks', href: '/backlinks', icon: LinkIcon },
 ]
 
