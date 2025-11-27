@@ -4,9 +4,15 @@ import bcrypt from 'bcryptjs'
 const prisma = new PrismaClient()
 
 async function main() {
-  const email = 'admin@seodashboard.com'
-  const password = 'admin123'
+  const email = process.env.ADMIN_EMAIL || 'admin@seodashboard.com'
+  const password = process.env.ADMIN_PASSWORD
   const name = 'Admin User'
+
+  if (!password) {
+    console.error('❌ Please set ADMIN_PASSWORD environment variable')
+    console.error('   Example: ADMIN_PASSWORD=yourpassword npx ts-node scripts/create-admin.ts')
+    process.exit(1)
+  }
 
   // Check if admin already exists
   const existing = await prisma.user.findUnique({
@@ -35,8 +41,6 @@ async function main() {
 
   console.log('✅ Admin user created successfully!')
   console.log(`Email: ${admin.email}`)
-  console.log(`Password: ${password}`)
-  console.log(`\n⚠️  Please change the password after first login!`)
 }
 
 main()

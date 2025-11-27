@@ -12,7 +12,12 @@
       "Bash(psql:*)",
       "Bash(npm run build:*)",
       "Bash(curl:*)",
-      "Bash(git rev-parse:*)"
+      "Bash(git rev-parse:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nInitial commit: SEO Dashboard with Prisma + Next.js\n\n- Next.js 15 with App Router\n- Prisma ORM with PostgreSQL\n- NextAuth authentication (Admin, SEO, Writer roles)\n- Brand/App/Keyword tracking\n- SEMRush integration\n- Article workflow management\n- Configured for Vercel + Neon deployment\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(gh auth:*)",
+      "Bash(git remote add:*)",
+      "Bash(git push:*)",
+      "Bash(openssl rand:*)"
     ],
     "deny": [],
     "ask": []

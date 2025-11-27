@@ -4,9 +4,15 @@ import bcrypt from 'bcryptjs'
 const prisma = new PrismaClient()
 
 async function main() {
-  const email = 'writer@seodashboard.com'
-  const password = 'writer123'
+  const email = process.env.WRITER_EMAIL || 'writer@seodashboard.com'
+  const password = process.env.WRITER_PASSWORD
   const name = 'Writer User'
+
+  if (!password) {
+    console.error('❌ Please set WRITER_PASSWORD environment variable')
+    console.error('   Example: WRITER_PASSWORD=yourpassword npx ts-node scripts/create-writer.ts')
+    process.exit(1)
+  }
 
   // Check if writer already exists
   const existing = await prisma.user.findUnique({
@@ -35,8 +41,6 @@ async function main() {
 
   console.log('✅ Writer user created successfully!')
   console.log(`Email: ${writer.email}`)
-  console.log(`Password: ${password}`)
-  console.log(`\n⚠️  Please change the password after first login!`)
 }
 
 main()
