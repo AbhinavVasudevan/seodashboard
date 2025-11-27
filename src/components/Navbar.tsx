@@ -18,13 +18,19 @@ import {
 } from '@heroicons/react/24/outline'
 import { useState, useRef, useEffect } from 'react'
 
-const navigation = [
+// Full navigation for Admin and SEO roles
+const fullNavigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
   { name: 'App Rankings', href: '/app-rankings', icon: ChartBarIcon },
   { name: 'Brands', href: '/brands', icon: BuildingOfficeIcon },
   { name: 'Keywords', href: '/keywords', icon: DocumentTextIcon },
   { name: 'Articles', href: '/articles', icon: PencilSquareIcon },
   { name: 'Backlinks', href: '/backlinks', icon: LinkIcon },
+]
+
+// Limited navigation for Writers - only Articles
+const writerNavigation = [
+  { name: 'Articles', href: '/articles', icon: PencilSquareIcon },
 ]
 
 const adminNavigation = [
@@ -56,7 +62,11 @@ export default function Navbar() {
   if (!session) return null
 
   const isAdmin = session.user?.role === 'ADMIN'
-  const allNavItems = isAdmin ? [...navigation, ...adminNavigation] : navigation
+  const isWriter = session.user?.role === 'WRITER'
+
+  // Writers only see Articles, Admin/SEO see full navigation
+  const baseNavigation = isWriter ? writerNavigation : fullNavigation
+  const allNavItems = isAdmin ? [...baseNavigation, ...adminNavigation] : baseNavigation
 
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
