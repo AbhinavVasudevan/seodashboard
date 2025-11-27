@@ -16,15 +16,11 @@ export const authOptions: NextAuthOptions = {
           throw new Error('Please enter your email and password')
         }
 
-        console.log('Login attempt for:', credentials.email)
-
         const user = await prisma.user.findUnique({
           where: {
             email: credentials.email
           }
         })
-
-        console.log('User found:', !!user, 'Hash prefix:', user?.password?.substring(0, 10))
 
         if (!user) {
           throw new Error('No user found with this email')
@@ -38,8 +34,6 @@ export const authOptions: NextAuthOptions = {
           credentials.password,
           user.password
         )
-
-        console.log('Password valid:', isPasswordValid)
 
         if (!isPasswordValid) {
           throw new Error('Invalid password')
