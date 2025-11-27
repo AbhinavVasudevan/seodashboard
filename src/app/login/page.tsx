@@ -3,7 +3,6 @@
 import { useState, Suspense } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import Link from 'next/link'
 import { ShieldCheckIcon } from '@heroicons/react/24/outline'
 
 function LoginForm() {
@@ -106,21 +105,6 @@ function LoginForm() {
             </button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
-              Don't have an account?{' '}
-              <Link href="/signup" className="text-primary-600 hover:text-primary-700 font-medium">
-                Sign up
-              </Link>
-            </p>
-          </div>
-        </div>
-
-        {/* Development Note */}
-        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-800">
-            <strong>Development Mode:</strong> Create an account or use test credentials if provided by your administrator.
-          </p>
         </div>
       </div>
     </div>
