@@ -5,24 +5,6 @@ import { CloudArrowUpIcon, ChartBarIcon } from '@heroicons/react/24/outline'
 import Link from 'next/link'
 import { getCountryFlag } from '@/lib/utils'
 
-interface AppRanking {
-  id: string
-  keyword: string
-  country: string
-  rank: number
-  score?: number
-  traffic?: number
-  date: string
-  app: {
-    id: string
-    name: string
-    platform: string
-    brand: {
-      name: string
-    }
-  }
-}
-
 interface App {
   id: string
   name: string
@@ -32,16 +14,17 @@ interface App {
   }
 }
 
-interface Keyword {
-  id: string
-  keyword: string
-  country: string
-}
-
 interface KeywordRow {
   keyword: string
   country: string
   appRankings: { [appId: string]: number | null }
+}
+
+interface MatrixData {
+  apps: App[]
+  keywordRows: KeywordRow[]
+  countries: string[]
+  date: string
 }
 
 export default function AppRankingsPage() {
@@ -101,74 +84,18 @@ export default function AppRankingsPage() {
   const fetchData = async () => {
     setIsLoading(true)
     try {
-      // Fetch all apps
-      const appsResponse = await fetch('/api/apps')
-      const appsData = await appsResponse.json()
-      setApps(appsData)
+      // Single optimized API call to fetch all data
+      const response = await fetch(`/api/app-rankings/matrix?date=${selectedDate}`)
+      const data: MatrixData = await response.json()
 
-      // Fetch all keywords for all apps
-      const allKeywordsMap = new Map<string, KeywordRow>()
-      const uniqueCountries = new Set<string>()
+      setApps(data.apps)
+      setKeywordRows(data.keywordRows)
+      setCountries(data.countries)
 
-      for (const app of appsData) {
-        // Fetch keywords for this app
-        const keywordsResponse = await fetch(`/api/keywords?appId=${app.id}`)
-        const keywords: Keyword[] = await keywordsResponse.json()
-
-        // Add all keywords to the map
-        keywords.forEach((kw) => {
-          const key = `${kw.keyword}|${kw.country}`
-          uniqueCountries.add(kw.country)
-
-          if (!allKeywordsMap.has(key)) {
-            allKeywordsMap.set(key, {
-              keyword: kw.keyword,
-              country: kw.country,
-              appRankings: {},
-            })
-          }
-
-          // Initialize ranking as null for this app
-          const row = allKeywordsMap.get(key)!
-          if (!(app.id in row.appRankings)) {
-            row.appRankings[app.id] = null
-          }
-        })
-
-        // Fetch rankings for this app for the selected date
-        const rankingsResponse = await fetch(`/api/app-rankings/upload?appId=${app.id}&limit=1000`)
-        const allRankings = await rankingsResponse.json()
-
-        // Filter rankings for selected date
-        const dateRankings = allRankings.filter((r: AppRanking) => {
-          const rankingDate = new Date(r.date).toISOString().split('T')[0]
-          return rankingDate === selectedDate
-        })
-
-        // Fill in the rankings
-        dateRankings.forEach((ranking: AppRanking) => {
-          const key = `${ranking.keyword}|${ranking.country}`
-          if (allKeywordsMap.has(key)) {
-            const row = allKeywordsMap.get(key)!
-            row.appRankings[app.id] = ranking.rank
-          }
-        })
+      // Set first country as default if current selection is not in the list
+      if (data.countries.length > 0 && !data.countries.includes(selectedCountry)) {
+        setSelectedCountry(data.countries[0])
       }
-
-      const sortedCountries = Array.from(uniqueCountries).sort()
-      setCountries(sortedCountries)
-      // Set first country as default if not already set
-      if (!selectedCountry && sortedCountries.length > 0) {
-        setSelectedCountry(sortedCountries[0])
-      }
-
-      // Convert to array and sort by keyword
-      const rows = Array.from(allKeywordsMap.values()).sort((a, b) => {
-        if (a.country !== b.country) return a.country.localeCompare(b.country)
-        return a.keyword.localeCompare(b.keyword)
-      })
-
-      setKeywordRows(rows)
     } catch (error) {
       console.error('Error fetching data:', error)
     } finally {
