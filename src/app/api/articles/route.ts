@@ -25,9 +25,9 @@ export async function GET(request: NextRequest) {
       whereClause.brandId = brandId
     }
 
-    // If user is a WRITER, only show their own articles
+    // If user is a WRITER, only show articles they created
     if (session.user?.role === 'WRITER') {
-      whereClause.requestedById = session.user.id
+      whereClause.writerId = session.user.id
     }
 
     const articles = await prisma.article.findMany({
@@ -110,6 +110,7 @@ export async function POST(request: NextRequest) {
       data: {
         slNo,
         requestedById,
+        writerId: session.user.id, // Track who created the article
         articleType,
         brandId,
         topicTitle,

@@ -17,7 +17,8 @@ model User {
   isActive          Boolean   @default(true)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
-  requestedArticles Article[]
+  requestedArticles Article[] @relation("RequestedArticles")
+  writtenArticles   Article[] @relation("WrittenArticles")
   brands            Brand[]
 
   @@map("users")
@@ -172,6 +173,7 @@ model Article {
   id              String        @id @default(cuid())
   slNo            String        @unique
   requestedById   String
+  writerId        String?
   articleType     ArticleType
   brandId         String
   topicTitle      String
@@ -197,7 +199,8 @@ model Article {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   brand           Brand         @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  requestedBy     User          @relation(fields: [requestedById], references: [id])
+  requestedBy     User          @relation("RequestedArticles", fields: [requestedById], references: [id])
+  writtenBy       User?         @relation("WrittenArticles", fields: [writerId], references: [id])
 
   @@map("articles")
 }
