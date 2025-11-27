@@ -25,9 +25,12 @@ export async function GET(request: NextRequest) {
       whereClause.brandId = brandId
     }
 
-    // If user is a WRITER, only show articles they created
+    // If user is a WRITER, show articles they created OR legacy articles without writerId
     if (session.user?.role === 'WRITER') {
-      whereClause.writerId = session.user.id
+      whereClause.OR = [
+        { writerId: session.user.id },
+        { writerId: null } // Legacy articles before writerId was added
+      ]
     }
 
     const articles = await prisma.article.findMany({
