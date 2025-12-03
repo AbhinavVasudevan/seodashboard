@@ -399,12 +399,12 @@ export default function AppRankingsPage() {
                               onClick={() => handleCellClick(row.keyword, row.country, app.id)}
                             >
                               {rank !== null ? (
-                                <div className="flex flex-col items-center gap-0.5">
-                                  <span className={`inline-flex items-center justify-center min-w-[44px] px-2 py-1 rounded text-xs font-bold ${getRankColor(rank)}`}>
+                                <div className="inline-flex items-center gap-1">
+                                  <span className={`inline-flex items-center justify-center min-w-[40px] px-1.5 py-1 rounded text-xs font-bold ${getRankColor(rank)}`}>
                                     #{rank}
                                   </span>
                                   {change !== null && change !== 0 && (
-                                    <span className={`text-[10px] font-semibold ${
+                                    <span className={`text-[10px] font-semibold whitespace-nowrap ${
                                       change > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                                     }`}>
                                       {change > 0 ? `↑${change}` : `↓${Math.abs(change)}`}
@@ -412,9 +412,9 @@ export default function AppRankingsPage() {
                                   )}
                                 </div>
                               ) : data?.prevRank ? (
-                                <div className="flex flex-col items-center gap-0.5">
+                                <div className="inline-flex items-center gap-1">
                                   <span className="text-muted-foreground/50 text-xs font-medium">NR</span>
-                                  <span className="text-[10px] text-red-600 dark:text-red-400 font-semibold">
+                                  <span className="text-[10px] text-red-600 dark:text-red-400 font-semibold whitespace-nowrap">
                                     was #{data.prevRank}
                                   </span>
                                 </div>
