@@ -68,7 +68,8 @@ export async function GET() {
       const key = `${r.appId}-${r.keyword}-${r.country}`
       const previousRank = yesterdayMap.get(key)
 
-      if (previousRank !== undefined) {
+      // Only compare when BOTH have actual rankings (not 0 which means "not ranked")
+      if (previousRank !== undefined && previousRank > 0 && r.rank > 0) {
         const change = previousRank - r.rank // Positive = improved, negative = dropped
         if (change !== 0) {
           rankingChanges.push({
