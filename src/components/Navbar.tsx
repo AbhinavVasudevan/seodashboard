@@ -10,8 +10,11 @@ import {
   Bars3Icon,
   XMarkIcon,
   ChevronDownIcon,
+  SunIcon,
+  MoonIcon,
 } from '@heroicons/react/24/outline'
 import { useState, useRef, useEffect } from 'react'
+import { useTheme } from 'next-themes'
 
 interface NavItem {
   name: string
@@ -48,11 +51,18 @@ const adminNavigation: NavItem[] = [
 export default function Navbar() {
   const pathname = usePathname()
   const { data: session } = useSession()
+  const { theme, setTheme, resolvedTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
   const userMenuRef = useRef<HTMLDivElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Prevent hydration mismatch
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const handleLogout = async () => {
     await signOut({ callbackUrl: '/login' })
@@ -162,8 +172,22 @@ export default function Navbar() {
             })}
           </div>
 
-          {/* User Menu - Simplified */}
-          <div className="hidden md:flex md:items-center" ref={userMenuRef}>
+          {/* Theme Toggle & User Menu */}
+          <div className="hidden md:flex md:items-center md:gap-2" ref={userMenuRef}>
+            {/* Theme Toggle */}
+            {mounted && (
+              <button
+                onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+                className="p-2 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                title={resolvedTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              >
+                {resolvedTheme === 'dark' ? (
+                  <SunIcon className="h-4 w-4" />
+                ) : (
+                  <MoonIcon className="h-4 w-4" />
+                )}
+              </button>
+            )}
             <div className="relative">
               <button
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
@@ -202,7 +226,20 @@ export default function Navbar() {
           </div>
 
           {/* Mobile menu button */}
-          <div className="flex items-center md:hidden">
+          <div className="flex items-center gap-2 md:hidden">
+            {/* Mobile Theme Toggle */}
+            {mounted && (
+              <button
+                onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+                className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground"
+              >
+                {resolvedTheme === 'dark' ? (
+                  <SunIcon className="h-5 w-5" />
+                ) : (
+                  <MoonIcon className="h-5 w-5" />
+                )}
+              </button>
+            )}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="p-1.5 rounded-md hover:bg-muted transition-colors"
