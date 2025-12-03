@@ -233,6 +233,7 @@ enum ArticleStatus {
   UNPUBLISHED
   SENT_TO_DEV
   PUBLISHED
+  LIVE
 }
 
 enum UserRole {

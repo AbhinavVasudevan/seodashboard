@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { XMarkIcon } from '@heroicons/react/24/outline'
 
 interface Article {
@@ -10,6 +10,10 @@ interface Article {
     name: string
     email: string
   }
+  writtenBy?: {
+    name: string
+    email: string
+  } | null
   articleType: string
   brand: {
     name: string
@@ -45,31 +49,43 @@ interface ArticleDetailModalProps {
 }
 
 export default function ArticleDetailModal({ article, onClose, onSave }: ArticleDetailModalProps) {
-  console.log('ArticleDetailModal received article:', article)
-  console.log('Article status:', article.status)
+  // Determine initial writer - prefer writtenBy relation, then existing writer field
+  const initialWriter = article.writtenBy?.name || article.writer || ''
 
   const [formData, setFormData] = useState({
     status: article.status,
     rejectionReason: article.rejectionReason || '',
-    pageName: article.pageName || article.topicTitle || '', // Default to topic title
+    pageName: article.pageName || article.topicTitle || '',
     language: article.language || 'EN',
     url: article.url || '',
-    pageType: article.pageType || article.articleType, // Default to article type
+    pageType: article.pageType || article.articleType,
     contentUrl: article.contentUrl || '',
     originalWc: article.originalWc || article.finalWordCount || '',
-    writer: article.writer || '',
-    sentDate: article.sentDate ? article.sentDate.split('T')[0] : new Date().toISOString().split('T')[0], // Default to today
+    writer: initialWriter,
+    sentDate: article.sentDate ? article.sentDate.split('T')[0] : new Date().toISOString().split('T')[0],
     publishDate: article.publishDate ? article.publishDate.split('T')[0] : '',
     seoCheck: article.seoCheck,
     images: article.images || '',
-    aiScore: article.aiScore || '',
-    plagiarismScore: article.plagiarismScore || '',
+    aiScore: article.aiScore ?? '',
+    plagiarismScore: article.plagiarismScore ?? '',
   })
 
   const [isLoading, setIsLoading] = useState(false)
   const [showRejectForm, setShowRejectForm] = useState(false)
+  const [reviewStep, setReviewStep] = useState<'scores' | 'decision'>('scores')
+
+  // Check if scores are filled for review step
+  const scoresEntered = formData.aiScore !== '' && formData.plagiarismScore !== ''
+
+  // Check if URL is filled for Live status validation
+  const canSelectLive = formData.url.trim() !== ''
 
   const handleAccept = async () => {
+    if (!scoresEntered) {
+      alert('Please enter both AI Score and Plagiarism Score before accepting')
+      return
+    }
+
     setIsLoading(true)
     try {
       const today = new Date().toISOString().split('T')[0]
@@ -79,21 +95,24 @@ export default function ArticleDetailModal({ article, onClose, onSave }: Article
         body: JSON.stringify({
           id: article.id,
           status: 'ACCEPTED',
-          originalWc: article.finalWordCount, // Auto-fill from writer's word count
-          pageName: article.topicTitle, // Auto-fill page name from topic/title
-          pageType: article.articleType, // Auto-fill page type from article type
-          sentDate: article.sentDate || today, // Use writer's date or default to today
+          aiScore: formData.aiScore,
+          plagiarismScore: formData.plagiarismScore,
+          originalWc: article.finalWordCount,
+          pageName: article.topicTitle,
+          pageType: article.articleType,
+          sentDate: article.sentDate || today,
+          writer: initialWriter, // Auto-fill writer from writtenBy
         }),
       })
 
       if (response.ok) {
-        // Update local state to show accepted status with auto-filled values
         setFormData(prev => ({
           ...prev,
           status: 'ACCEPTED',
           pageName: article.topicTitle,
           pageType: article.articleType,
           sentDate: article.sentDate ? article.sentDate.split('T')[0] : today,
+          writer: initialWriter,
         }))
       } else {
         alert('Failed to accept article')
@@ -112,6 +131,11 @@ export default function ArticleDetailModal({ article, onClose, onSave }: Article
       return
     }
 
+    if (!scoresEntered) {
+      alert('Please enter both AI Score and Plagiarism Score before rejecting')
+      return
+    }
+
     setIsLoading(true)
     try {
       const response = await fetch('/api/articles', {
@@ -121,6 +145,8 @@ export default function ArticleDetailModal({ article, onClose, onSave }: Article
           id: article.id,
           status: 'REJECTED',
           rejectionReason: formData.rejectionReason,
+          aiScore: formData.aiScore,
+          plagiarismScore: formData.plagiarismScore,
         }),
       })
 
@@ -138,6 +164,12 @@ export default function ArticleDetailModal({ article, onClose, onSave }: Article
   }
 
   const handleSave = async () => {
+    // Validate Live status requires URL
+    if (formData.status === 'LIVE' && !formData.url.trim()) {
+      alert('URL is required for Live status')
+      return
+    }
+
     setIsLoading(true)
     try {
       const response = await fetch('/api/articles', {
@@ -162,13 +194,22 @@ export default function ArticleDetailModal({ article, onClose, onSave }: Article
     }
   }
 
+  // Handle status change with Live validation
+  const handleStatusChange = (newStatus: string) => {
+    if (newStatus === 'LIVE' && !canSelectLive) {
+      alert('Please fill in the URL field before setting status to Live')
+      return
+    }
+    setFormData({ ...formData, status: newStatus })
+  }
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Article Details</h2>
-            <p className="text-sm text-gray-600">Sl No: {article.slNo} | Status: {formData.status}</p>
+            <p className="text-sm text-gray-600">Sl No: {article.slNo} | Status: {formData.status.replace('_', ' ')}</p>
           </div>
           <button
             onClick={onClose}
@@ -186,6 +227,10 @@ export default function ArticleDetailModal({ article, onClose, onSave }: Article
               <div>
                 <span className="font-medium text-gray-700">Requested By:</span>
                 <p className="text-gray-900">{article.requestedBy.name}</p>
+              </div>
+              <div>
+                <span className="font-medium text-gray-700">Writer:</span>
+                <p className="text-gray-900">{article.writtenBy?.name || 'Not assigned'}</p>
               </div>
               <div>
                 <span className="font-medium text-gray-700">Article Type:</span>
@@ -211,80 +256,150 @@ export default function ArticleDetailModal({ article, onClose, onSave }: Article
                 <span className="font-medium text-gray-700">Final Word Count:</span>
                 <p className="text-gray-900">{article.finalWordCount || '-'}</p>
               </div>
-              <div>
+              <div className="md:col-span-2">
                 <span className="font-medium text-gray-700">Document:</span>
                 {article.documentUrl ? (
                   <a
                     href={article.documentUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800"
+                    className="text-blue-600 hover:text-blue-800 ml-2"
                   >
                     View Document
                   </a>
                 ) : (
-                  <p className="text-gray-400">-</p>
+                  <span className="text-gray-400 ml-2">-</span>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Accept/Reject Section - Only show for SUBMITTED status */}
+          {/* Review Section - Only show for SUBMITTED status */}
           {formData.status === 'SUBMITTED' && (
             <div className="border-t border-gray-200 pt-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Review Article</h3>
-              <div className="flex gap-4">
-                <button
-                  onClick={handleAccept}
-                  disabled={isLoading}
-                  className="btn-primary"
-                >
-                  Accept Article
-                </button>
-                <button
-                  onClick={() => setShowRejectForm(!showRejectForm)}
-                  className="btn-secondary"
-                >
-                  {showRejectForm ? 'Cancel Rejection' : 'Reject Article'}
-                </button>
-              </div>
 
-              {showRejectForm && (
-                <div className="mt-4 space-y-4">
+              {/* Step 1: Enter Scores */}
+              <div className="bg-blue-50 p-4 rounded-lg mb-4">
+                <h4 className="text-md font-medium text-blue-900 mb-3">Step 1: Enter Quality Scores</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Rejection Reason *
+                      AI Score (0-100) *
                     </label>
-                    <select
-                      value={formData.rejectionReason}
-                      onChange={(e) => setFormData({ ...formData, rejectionReason: e.target.value })}
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={formData.aiScore}
+                      onChange={(e) => setFormData({ ...formData, aiScore: e.target.value })}
                       className="input-field"
+                      placeholder="Enter AI detection score"
                       required
-                    >
-                      <option value="">Select reason...</option>
-                      <option value="AI Content Detected">AI Content Detected</option>
-                      <option value="Plagiarism Detected">Plagiarism Detected</option>
-                      <option value="Poor Quality">Poor Quality</option>
-                      <option value="Off Topic">Off Topic</option>
-                      <option value="Other">Other</option>
-                    </select>
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Lower is better (0 = no AI detected)</p>
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Plagiarism Score (0-100) *
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={formData.plagiarismScore}
+                      onChange={(e) => setFormData({ ...formData, plagiarismScore: e.target.value })}
+                      className="input-field"
+                      placeholder="Enter plagiarism score"
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Lower is better (0 = no plagiarism)</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 2: Accept or Reject */}
+              <div className={`bg-gray-50 p-4 rounded-lg ${!scoresEntered ? 'opacity-60' : ''}`}>
+                <h4 className="text-md font-medium text-gray-900 mb-3">Step 2: Make Decision</h4>
+                {!scoresEntered && (
+                  <p className="text-sm text-amber-600 mb-3">Please enter both scores above first</p>
+                )}
+
+                <div className="flex gap-4 mb-4">
                   <button
-                    onClick={handleReject}
-                    disabled={isLoading || !formData.rejectionReason}
-                    className="btn-primary bg-red-600 hover:bg-red-700"
+                    onClick={handleAccept}
+                    disabled={isLoading || !scoresEntered}
+                    className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Confirm Rejection
+                    Accept Article
+                  </button>
+                  <button
+                    onClick={() => setShowRejectForm(!showRejectForm)}
+                    disabled={!scoresEntered}
+                    className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {showRejectForm ? 'Cancel Rejection' : 'Reject Article'}
                   </button>
                 </div>
-              )}
+
+                {showRejectForm && scoresEntered && (
+                  <div className="mt-4 space-y-4 border-t pt-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Rejection Reason *
+                      </label>
+                      <select
+                        value={formData.rejectionReason}
+                        onChange={(e) => setFormData({ ...formData, rejectionReason: e.target.value })}
+                        className="input-field"
+                        required
+                      >
+                        <option value="">Select reason...</option>
+                        <option value="AI Content Detected">AI Content Detected</option>
+                        <option value="Plagiarism Detected">Plagiarism Detected</option>
+                        <option value="Poor Quality">Poor Quality</option>
+                        <option value="Off Topic">Off Topic</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+                    <button
+                      onClick={handleReject}
+                      disabled={isLoading || !formData.rejectionReason}
+                      className="btn-primary bg-red-600 hover:bg-red-700"
+                    >
+                      Confirm Rejection
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
           {/* SEO Processing Fields - Only show for ACCEPTED and beyond */}
-          {['ACCEPTED', 'UNPUBLISHED', 'SENT_TO_DEV', 'PUBLISHED'].includes(formData.status) && (
+          {['ACCEPTED', 'SENT_TO_DEV', 'LIVE'].includes(formData.status) && (
             <div className="border-t border-gray-200 pt-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">SEO Processing</h3>
+
+              {/* Show saved scores */}
+              <div className="bg-green-50 p-4 rounded-lg mb-6">
+                <h4 className="text-md font-medium text-green-900 mb-2">Quality Scores (Saved)</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="font-medium text-gray-700">AI Score:</span>
+                    <span className={`ml-2 font-semibold ${Number(formData.aiScore) > 20 ? 'text-red-600' : 'text-green-600'}`}>
+                      {formData.aiScore}%
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-700">Plagiarism Score:</span>
+                    <span className={`ml-2 font-semibold ${Number(formData.plagiarismScore) > 10 ? 'text-red-600' : 'text-green-600'}`}>
+                      {formData.plagiarismScore}%
+                    </span>
+                  </div>
+                </div>
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -340,14 +455,14 @@ export default function ArticleDetailModal({ article, onClose, onSave }: Article
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Content URL
+                    Final Doc
                   </label>
                   <input
                     type="url"
                     value={formData.contentUrl}
                     onChange={(e) => setFormData({ ...formData, contentUrl: e.target.value })}
                     className="input-field"
-                    placeholder="https://"
+                    placeholder="https://docs.google.com/..."
                   />
                 </div>
 
@@ -371,8 +486,13 @@ export default function ArticleDetailModal({ article, onClose, onSave }: Article
                     type="text"
                     value={formData.writer}
                     onChange={(e) => setFormData({ ...formData, writer: e.target.value })}
-                    className="input-field"
+                    className="input-field bg-gray-50"
+                    readOnly={!!article.writtenBy}
+                    title={article.writtenBy ? 'Auto-filled from writer account' : ''}
                   />
+                  {article.writtenBy && (
+                    <p className="text-xs text-gray-500 mt-1">Auto-filled from writer account</p>
+                  )}
                 </div>
 
                 <div>
@@ -399,17 +519,20 @@ export default function ArticleDetailModal({ article, onClose, onSave }: Article
                   />
                 </div>
 
-                <div>
+                <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    URL (for published articles)
+                    URL (Published Article) {formData.status === 'LIVE' || canSelectLive ? '' : '- Required for Live status'}
                   </label>
                   <input
                     type="url"
                     value={formData.url}
                     onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-                    className="input-field"
-                    placeholder="https://"
+                    className={`input-field ${formData.status === 'LIVE' && !canSelectLive ? 'border-red-500' : ''}`}
+                    placeholder="https://example.com/article-url"
                   />
+                  {!canSelectLive && (
+                    <p className="text-xs text-amber-600 mt-1">Fill this to enable Live status</p>
+                  )}
                 </div>
 
                 <div>
@@ -424,37 +547,7 @@ export default function ArticleDetailModal({ article, onClose, onSave }: Article
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    AI Score (0-100)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="100"
-                    value={formData.aiScore}
-                    onChange={(e) => setFormData({ ...formData, aiScore: e.target.value })}
-                    className="input-field"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Plagiarism Score (0-100)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="100"
-                    value={formData.plagiarismScore}
-                    onChange={(e) => setFormData({ ...formData, plagiarismScore: e.target.value })}
-                    className="input-field"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
+                <div className="flex items-center">
                   <label className="flex items-center">
                     <input
                       type="checkbox"
@@ -472,13 +565,14 @@ export default function ArticleDetailModal({ article, onClose, onSave }: Article
                   </label>
                   <select
                     value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                    onChange={(e) => handleStatusChange(e.target.value)}
                     className="input-field"
                   >
                     <option value="ACCEPTED">Accepted</option>
-                    <option value="UNPUBLISHED">Unpublished</option>
                     <option value="SENT_TO_DEV">Sent to Dev</option>
-                    <option value="PUBLISHED">Published</option>
+                    <option value="LIVE" disabled={!canSelectLive}>
+                      Live {!canSelectLive ? '(Requires URL)' : ''}
+                    </option>
                   </select>
                 </div>
               </div>
@@ -489,7 +583,14 @@ export default function ArticleDetailModal({ article, onClose, onSave }: Article
           {formData.status === 'REJECTED' && (
             <div className="bg-red-50 p-4 rounded-lg">
               <h3 className="text-lg font-semibold text-red-900 mb-2">Rejected</h3>
-              <p className="text-sm text-red-700">Reason: {article.rejectionReason}</p>
+              <p className="text-sm text-red-700 mb-2">Reason: {article.rejectionReason}</p>
+              {(article.aiScore !== null || article.plagiarismScore !== null) && (
+                <div className="mt-2 pt-2 border-t border-red-200">
+                  <p className="text-sm text-red-700">
+                    AI Score: {article.aiScore ?? 'N/A'}% | Plagiarism Score: {article.plagiarismScore ?? 'N/A'}%
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>

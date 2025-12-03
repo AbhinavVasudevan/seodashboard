@@ -46,6 +46,12 @@ export async function GET(request: NextRequest) {
             name: true,
             email: true
           }
+        },
+        writtenBy: {
+          select: {
+            name: true,
+            email: true
+          }
         }
       },
       orderBy: {
@@ -213,6 +219,12 @@ export async function PUT(request: NextRequest) {
           }
         },
         requestedBy: {
+          select: {
+            name: true,
+            email: true
+          }
+        },
+        writtenBy: {
           select: {
             name: true,
             email: true

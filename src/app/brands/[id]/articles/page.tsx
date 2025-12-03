@@ -2,26 +2,44 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { DocumentTextIcon, PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, ArrowLeftIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline'
+import { DocumentTextIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, ArrowLeftIcon, ArrowDownTrayIcon, EyeIcon } from '@heroicons/react/24/outline'
+import ArticleDetailModal from '@/components/ArticleDetailModal'
 
 interface Article {
   id: string
-  pageName: string
-  language: string
-  url?: string
-  pageType: string
-  contentUrl?: string
-  wordCount?: number
-  status: 'DRAFT' | 'PENDING_REVIEW' | 'APPROVED' | 'PUBLISHED' | 'LIVE' | 'REJECTED'
-  docCode?: string
-  originalWc?: number
-  writer?: string
-  publishDate?: string
+  slNo: string
+  requestedBy: {
+    name: string
+    email: string
+  }
+  writtenBy?: {
+    name: string
+    email: string
+  } | null
+  articleType: string
+  brand: {
+    name: string
+  }
+  topicTitle: string
+  gameProvider: string | null
+  primaryKeyword: string | null
+  finalWordCount: number | null
+  documentUrl: string | null
+  status: string
+  rejectionReason: string | null
+  pageName: string | null
+  language: string | null
+  url: string | null
+  pageType: string | null
+  contentUrl: string | null
+  originalWc: number | null
+  writer: string | null
+  sentDate: string | null
+  publishDate: string | null
   seoCheck: boolean
-  images?: number
-  ai: boolean
-  plagiarism: boolean
+  images: number | null
+  aiScore: number | null
+  plagiarismScore: number | null
 }
 
 interface Brand {
@@ -39,25 +57,8 @@ export default function BrandArticlesPage() {
   const [articles, setArticles] = useState<Article[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
-  const [showAddForm, setShowAddForm] = useState(false)
-  const [editingArticle, setEditingArticle] = useState<Article | null>(null)
-  const [formData, setFormData] = useState({
-    pageName: '',
-    language: 'English',
-    url: '',
-    pageType: 'Category',
-    contentUrl: '',
-    wordCount: '',
-    status: 'DRAFT',
-    docCode: '',
-    originalWc: '',
-    writer: '',
-    publishDate: '',
-    seoCheck: false,
-    images: '',
-    ai: false,
-    plagiarism: false,
-  })
+  const [selectedArticle, setSelectedArticle] = useState<Article | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     fetchBrandData()
@@ -82,65 +83,15 @@ export default function BrandArticlesPage() {
 
   const fetchArticles = async () => {
     try {
+      setIsLoading(true)
       const response = await fetch(`/api/articles?brandId=${brandId}`)
       const data = await response.json()
       setArticles(data)
     } catch (error) {
       console.error('Error fetching articles:', error)
+    } finally {
+      setIsLoading(false)
     }
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    try {
-      const payload = {
-        ...formData,
-        wordCount: formData.wordCount ? parseInt(formData.wordCount) : null,
-        originalWc: formData.originalWc ? parseInt(formData.originalWc) : null,
-        images: formData.images ? parseInt(formData.images) : null,
-        publishDate: formData.publishDate || null,
-        brandId,
-      }
-
-      const response = await fetch('/api/articles', {
-        method: editingArticle ? 'PUT' : 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(editingArticle ? { ...payload, id: editingArticle.id } : payload),
-      })
-
-      if (response.ok) {
-        setShowAddForm(false)
-        setEditingArticle(null)
-        resetForm()
-        fetchArticles()
-      }
-    } catch (error) {
-      console.error('Error saving article:', error)
-    }
-  }
-
-  const handleEdit = (article: Article) => {
-    setEditingArticle(article)
-    setFormData({
-      pageName: article.pageName,
-      language: article.language,
-      url: article.url || '',
-      pageType: article.pageType,
-      contentUrl: article.contentUrl || '',
-      wordCount: article.wordCount?.toString() || '',
-      status: article.status,
-      docCode: article.docCode || '',
-      originalWc: article.originalWc?.toString() || '',
-      writer: article.writer || '',
-      publishDate: article.publishDate ? new Date(article.publishDate).toISOString().split('T')[0] : '',
-      seoCheck: article.seoCheck,
-      images: article.images?.toString() || '',
-      ai: article.ai,
-      plagiarism: article.plagiarism,
-    })
-    setShowAddForm(true)
   }
 
   const handleDelete = async (id: string) => {
@@ -156,29 +107,12 @@ export default function BrandArticlesPage() {
     }
   }
 
-  const resetForm = () => {
-    setFormData({
-      pageName: '',
-      language: 'English',
-      url: '',
-      pageType: 'Category',
-      contentUrl: '',
-      wordCount: '',
-      status: 'DRAFT',
-      docCode: '',
-      originalWc: '',
-      writer: '',
-      publishDate: '',
-      seoCheck: false,
-      images: '',
-      ai: false,
-      plagiarism: false,
-    })
-  }
-
   const filteredArticles = articles.filter(article => {
-    const matchesSearch = article.pageName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         article.writer?.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSearch =
+      article.topicTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      article.slNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      article.writer?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      article.requestedBy.name.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = !statusFilter || article.status === statusFilter
     return matchesSearch && matchesStatus
   })
@@ -186,40 +120,36 @@ export default function BrandArticlesPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'LIVE':
+        return 'bg-green-100 text-green-800'
       case 'PUBLISHED':
-        return 'status-success'
-      case 'APPROVED':
+        return 'bg-green-100 text-green-800'
+      case 'SENT_TO_DEV':
         return 'bg-blue-100 text-blue-800'
-      case 'PENDING_REVIEW':
-        return 'status-warning'
-      case 'DRAFT':
-        return 'bg-gray-100 text-gray-800'
+      case 'ACCEPTED':
+        return 'bg-cyan-100 text-cyan-800'
+      case 'SUBMITTED':
+        return 'bg-yellow-100 text-yellow-800'
       case 'REJECTED':
-        return 'status-error'
+        return 'bg-red-100 text-red-800'
       default:
         return 'bg-gray-100 text-gray-800'
     }
   }
 
   const exportToCSV = () => {
-    const headers = ['Page Name', 'Language', 'URL', 'Page Type', 'Content URL', 'Word Count', 'Status', 'Doc Code', 'Original WC', 'Writer', 'Publish Date', 'SEO Check', 'Images', 'AI', 'Plagiarism']
+    const headers = ['Sl No', 'Topic/Title', 'Writer', 'Article Type', 'Status', 'AI Score', 'Plagiarism Score', 'Word Count', 'URL', 'Publish Date']
 
     const rows = filteredArticles.map(article => [
-      article.pageName,
-      article.language,
-      article.url || '',
-      article.pageType,
-      article.contentUrl || '',
-      article.wordCount || '',
+      article.slNo,
+      article.topicTitle,
+      article.writer || article.writtenBy?.name || '',
+      article.articleType,
       article.status,
-      article.docCode || '',
-      article.originalWc || '',
-      article.writer || '',
+      article.aiScore ?? '',
+      article.plagiarismScore ?? '',
+      article.finalWordCount || article.originalWc || '',
+      article.url || '',
       article.publishDate ? new Date(article.publishDate).toLocaleDateString() : '',
-      article.seoCheck ? 'Done' : '',
-      article.images || '',
-      article.ai ? 'Yes' : 'No',
-      article.plagiarism ? 'Yes' : 'No',
     ])
 
     const csvContent = [
@@ -238,8 +168,15 @@ export default function BrandArticlesPage() {
     window.URL.revokeObjectURL(url)
   }
 
-  const pageTypes = ['Category', 'Guide', 'Review', 'News', 'Blog', 'Landing Page']
-  const languages = ['English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese']
+  // Count articles by status
+  const statusCounts = {
+    total: articles.length,
+    submitted: articles.filter(a => a.status === 'SUBMITTED').length,
+    accepted: articles.filter(a => a.status === 'ACCEPTED').length,
+    sentToDev: articles.filter(a => a.status === 'SENT_TO_DEV').length,
+    live: articles.filter(a => a.status === 'LIVE' || a.status === 'PUBLISHED').length,
+    rejected: articles.filter(a => a.status === 'REJECTED').length,
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 to-secondary-50">
@@ -256,7 +193,7 @@ export default function BrandArticlesPage() {
               </button>
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">Articles - {brand?.name}</h1>
-                <p className="text-gray-600 mt-1">Track and manage content production</p>
+                <p className="text-gray-600 mt-1">Manage content workflow and track article status</p>
               </div>
             </div>
             <div className="flex gap-3">
@@ -267,17 +204,6 @@ export default function BrandArticlesPage() {
                 <ArrowDownTrayIcon className="h-5 w-5" />
                 Export
               </button>
-              <button
-                onClick={() => {
-                  setShowAddForm(true)
-                  setEditingArticle(null)
-                  resetForm()
-                }}
-                className="btn-primary flex items-center gap-2"
-              >
-                <PlusIcon className="h-5 w-5" />
-                Add Article
-              </button>
             </div>
           </div>
         </div>
@@ -285,28 +211,30 @@ export default function BrandArticlesPage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
           <div className="card">
-            <div className="text-sm font-medium text-gray-600">Total Articles</div>
-            <div className="text-2xl font-semibold text-gray-900 mt-1">{articles.length}</div>
+            <div className="text-sm font-medium text-gray-600">Total</div>
+            <div className="text-2xl font-semibold text-gray-900 mt-1">{statusCounts.total}</div>
+          </div>
+          <div className="card">
+            <div className="text-sm font-medium text-gray-600">Pending Review</div>
+            <div className="text-2xl font-semibold text-yellow-600 mt-1">{statusCounts.submitted}</div>
+          </div>
+          <div className="card">
+            <div className="text-sm font-medium text-gray-600">Accepted</div>
+            <div className="text-2xl font-semibold text-cyan-600 mt-1">{statusCounts.accepted}</div>
+          </div>
+          <div className="card">
+            <div className="text-sm font-medium text-gray-600">Sent to Dev</div>
+            <div className="text-2xl font-semibold text-blue-600 mt-1">{statusCounts.sentToDev}</div>
           </div>
           <div className="card">
             <div className="text-sm font-medium text-gray-600">Live</div>
-            <div className="text-2xl font-semibold text-green-600 mt-1">
-              {articles.filter(a => a.status === 'LIVE' || a.status === 'PUBLISHED').length}
-            </div>
+            <div className="text-2xl font-semibold text-green-600 mt-1">{statusCounts.live}</div>
           </div>
           <div className="card">
-            <div className="text-sm font-medium text-gray-600">In Progress</div>
-            <div className="text-2xl font-semibold text-yellow-600 mt-1">
-              {articles.filter(a => a.status === 'DRAFT' || a.status === 'PENDING_REVIEW').length}
-            </div>
-          </div>
-          <div className="card">
-            <div className="text-sm font-medium text-gray-600">Total Words</div>
-            <div className="text-2xl font-semibold text-gray-900 mt-1">
-              {articles.reduce((sum, a) => sum + (a.wordCount || 0), 0).toLocaleString()}
-            </div>
+            <div className="text-sm font-medium text-gray-600">Rejected</div>
+            <div className="text-2xl font-semibold text-red-600 mt-1">{statusCounts.rejected}</div>
           </div>
         </div>
 
@@ -316,7 +244,7 @@ export default function BrandArticlesPage() {
             <MagnifyingGlassIcon className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              placeholder="Search articles..."
+              placeholder="Search by title, Sl No, writer..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="input-field pl-10"
@@ -328,11 +256,10 @@ export default function BrandArticlesPage() {
             className="input-field"
           >
             <option value="">All Statuses</option>
-            <option value="DRAFT">Draft</option>
-            <option value="PENDING_REVIEW">Pending Review</option>
-            <option value="APPROVED">Approved</option>
+            <option value="SUBMITTED">Pending Review</option>
+            <option value="ACCEPTED">Accepted</option>
+            <option value="SENT_TO_DEV">Sent to Dev</option>
             <option value="LIVE">Live</option>
-            <option value="PUBLISHED">Published</option>
             <option value="REJECTED">Rejected</option>
           </select>
         </div>
@@ -344,28 +271,22 @@ export default function BrandArticlesPage() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Page Name
+                    Sl No
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Language
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Page Type
+                    Topic/Title
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Writer
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Word Count
+                    Type
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Scores
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Checks
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Publish Date
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
@@ -373,67 +294,70 @@ export default function BrandArticlesPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredArticles.length === 0 ? (
+                {isLoading ? (
                   <tr>
-                    <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
-                      No articles found. Click "Add Article" to create your first article.
+                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                      Loading articles...
+                    </td>
+                  </tr>
+                ) : filteredArticles.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                      No articles found for this brand.
                     </td>
                   </tr>
                 ) : (
                   filteredArticles.map((article) => (
                     <tr key={article.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {article.slNo}
+                      </td>
                       <td className="px-4 py-4">
-                        <div className="flex items-center">
-                          <DocumentTextIcon className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
-                          <div className="text-sm font-medium text-gray-900">{article.pageName}</div>
+                        <div className="flex items-start">
+                          <DocumentTextIcon className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <div className="text-sm font-medium text-gray-900 max-w-xs truncate" title={article.topicTitle}>
+                              {article.topicTitle}
+                            </div>
+                            {article.primaryKeyword && (
+                              <div className="text-xs text-gray-500">
+                                Keyword: {article.primaryKeyword}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {article.language}
+                        {article.writer || article.writtenBy?.name || '-'}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {article.pageType}
+                        {article.articleType.replace('_', ' ')}
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {article.writer || '-'}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {article.wordCount ? article.wordCount.toLocaleString() : '-'}
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <div className="flex flex-col gap-1">
+                          {article.aiScore !== null && (
+                            <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded ${
+                              article.aiScore > 20 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                            }`}>
+                              AI: {article.aiScore}%
+                            </span>
+                          )}
+                          {article.plagiarismScore !== null && (
+                            <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded ${
+                              article.plagiarismScore > 10 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                            }`}>
+                              Plag: {article.plagiarismScore}%
+                            </span>
+                          )}
+                          {article.aiScore === null && article.plagiarismScore === null && (
+                            <span className="text-xs text-gray-400">Not checked</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <span className={`status-badge ${getStatusColor(article.status)}`}>
-                          {article.status.replace('_', ' ')}
+                          {article.status === 'SENT_TO_DEV' ? 'Sent to Dev' : article.status.replace('_', ' ')}
                         </span>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <div className="flex gap-1">
-                          {article.seoCheck && (
-                            <span className="inline-flex px-2 py-1 text-xs font-medium rounded bg-green-100 text-green-800" title="SEO Check Done">
-                              ✓ SEO
-                            </span>
-                          )}
-                          {article.ai && (
-                            <span className="inline-flex px-2 py-1 text-xs font-medium rounded bg-purple-100 text-purple-800" title="AI Content">
-                              AI {article.ai}%
-                            </span>
-                          )}
-                          {article.plagiarism && (
-                            <span className="inline-flex px-2 py-1 text-xs font-medium rounded bg-red-100 text-red-800" title="Plagiarism Detected">
-                              ⚠ {article.plagiarism}%
-                            </span>
-                          )}
-                          {article.images && article.images > 0 && (
-                            <span className="inline-flex px-2 py-1 text-xs font-medium rounded bg-blue-100 text-blue-800" title="Images">
-                              🖼 {article.images}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {article.publishDate
-                          ? new Date(article.publishDate).toLocaleDateString()
-                          : '-'
-                        }
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex gap-2">
@@ -442,25 +366,25 @@ export default function BrandArticlesPage() {
                               href={article.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-primary-600 hover:text-primary-800"
-                              title="View Page"
+                              className="text-green-600 hover:text-green-800"
+                              title="View Live Page"
                             >
-                              View
+                              <EyeIcon className="h-4 w-4" />
                             </a>
                           )}
-                          {article.contentUrl && (
+                          {article.documentUrl && (
                             <a
-                              href={article.contentUrl}
+                              href={article.documentUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-green-600 hover:text-green-800"
-                              title="View Content Doc"
+                              className="text-blue-600 hover:text-blue-800"
+                              title="View Document"
                             >
                               Doc
                             </a>
                           )}
                           <button
-                            onClick={() => handleEdit(article)}
+                            onClick={() => setSelectedArticle(article)}
                             className="text-indigo-600 hover:text-indigo-900"
                             title="Edit"
                           >
@@ -482,252 +406,19 @@ export default function BrandArticlesPage() {
             </table>
           </div>
         </div>
-
-        {/* Add/Edit Article Modal */}
-        {showAddForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-              <h3 className="text-lg font-semibold mb-4">
-                {editingArticle ? 'Edit Article' : 'Add New Article'}
-              </h3>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Page Name *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.pageName}
-                      onChange={(e) => setFormData({ ...formData, pageName: e.target.value })}
-                      className="input-field"
-                      required
-                      placeholder="e.g., Betting"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Language *
-                    </label>
-                    <select
-                      value={formData.language}
-                      onChange={(e) => setFormData({ ...formData, language: e.target.value })}
-                      className="input-field"
-                      required
-                    >
-                      {languages.map(lang => (
-                        <option key={lang} value={lang}>{lang}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Page Type *
-                    </label>
-                    <select
-                      value={formData.pageType}
-                      onChange={(e) => setFormData({ ...formData, pageType: e.target.value })}
-                      className="input-field"
-                      required
-                    >
-                      {pageTypes.map(type => (
-                        <option key={type} value={type}>{type}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Live URL
-                    </label>
-                    <input
-                      type="url"
-                      value={formData.url}
-                      onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-                      className="input-field"
-                      placeholder="https://www.example.com/page"
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Content URL (Google Doc)
-                    </label>
-                    <input
-                      type="url"
-                      value={formData.contentUrl}
-                      onChange={(e) => setFormData({ ...formData, contentUrl: e.target.value })}
-                      className="input-field"
-                      placeholder="https://docs.google.com/document/..."
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Word Count
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.wordCount}
-                      onChange={(e) => setFormData({ ...formData, wordCount: e.target.value })}
-                      className="input-field"
-                      min="0"
-                      placeholder="2047"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Original Word Count
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.originalWc}
-                      onChange={(e) => setFormData({ ...formData, originalWc: e.target.value })}
-                      className="input-field"
-                      min="0"
-                      placeholder="2496"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Writer
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.writer}
-                      onChange={(e) => setFormData({ ...formData, writer: e.target.value })}
-                      className="input-field"
-                      placeholder="John Doe"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Status
-                    </label>
-                    <select
-                      value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                      className="input-field"
-                    >
-                      <option value="DRAFT">Draft</option>
-                      <option value="PENDING_REVIEW">Pending Review</option>
-                      <option value="APPROVED">Approved</option>
-                      <option value="LIVE">Live</option>
-                      <option value="PUBLISHED">Published</option>
-                      <option value="REJECTED">Rejected</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Publish Date
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.publishDate}
-                      onChange={(e) => setFormData({ ...formData, publishDate: e.target.value })}
-                      className="input-field"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Doc Code
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.docCode}
-                      onChange={(e) => setFormData({ ...formData, docCode: e.target.value })}
-                      className="input-field"
-                      placeholder="ATAM-FEB-24-018"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Number of Images
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.images}
-                      onChange={(e) => setFormData({ ...formData, images: e.target.value })}
-                      className="input-field"
-                      min="0"
-                      placeholder="3"
-                    />
-                  </div>
-                </div>
-
-                <div className="border-t pt-4 mt-4">
-                  <div className="space-y-3">
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="seoCheck"
-                        checked={formData.seoCheck}
-                        onChange={(e) => setFormData({ ...formData, seoCheck: e.target.checked })}
-                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                      />
-                      <label htmlFor="seoCheck" className="ml-2 block text-sm text-gray-900">
-                        SEO Check Done
-                      </label>
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="ai"
-                        checked={formData.ai}
-                        onChange={(e) => setFormData({ ...formData, ai: e.target.checked })}
-                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                      />
-                      <label htmlFor="ai" className="ml-2 block text-sm text-gray-900">
-                        AI Content Detected
-                      </label>
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="plagiarism"
-                        checked={formData.plagiarism}
-                        onChange={(e) => setFormData({ ...formData, plagiarism: e.target.checked })}
-                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                      />
-                      <label htmlFor="plagiarism" className="ml-2 block text-sm text-gray-900">
-                        Plagiarism Detected
-                      </label>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex gap-3 mt-6 pt-4 border-t">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowAddForm(false)
-                      setEditingArticle(null)
-                      resetForm()
-                    }}
-                    className="btn-secondary flex-1"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="btn-primary flex-1"
-                  >
-                    {editingArticle ? 'Update' : 'Add'} Article
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
       </main>
+
+      {/* Article Detail Modal */}
+      {selectedArticle && (
+        <ArticleDetailModal
+          article={selectedArticle}
+          onClose={() => setSelectedArticle(null)}
+          onSave={() => {
+            setSelectedArticle(null)
+            fetchArticles()
+          }}
+        />
+      )}
     </div>
   )
 }

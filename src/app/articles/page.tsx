@@ -11,6 +11,10 @@ interface Article {
     name: string
     email: string
   }
+  writtenBy?: {
+    name: string
+    email: string
+  } | null
   articleType: string
   brand: {
     name: string
@@ -115,12 +119,11 @@ export default function ArticlesPage() {
             className="input-field"
           >
             <option value="">All Statuses</option>
-            <option value="SUBMITTED">Submitted</option>
-            <option value="REJECTED">Rejected</option>
+            <option value="SUBMITTED">Pending Review</option>
             <option value="ACCEPTED">Accepted</option>
-            <option value="UNPUBLISHED">Unpublished</option>
             <option value="SENT_TO_DEV">Sent to Dev</option>
-            <option value="PUBLISHED">Published</option>
+            <option value="LIVE">Live</option>
+            <option value="REJECTED">Rejected</option>
           </select>
         </div>
 
@@ -211,7 +214,7 @@ export default function ArticlesPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(article.status)}`}>
-                          {article.status}
+                          {formatStatus(article.status)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -270,14 +273,25 @@ function getStatusColor(status: string) {
     case 'REJECTED':
       return 'bg-red-100 text-red-800'
     case 'ACCEPTED':
-      return 'bg-blue-100 text-blue-800'
-    case 'UNPUBLISHED':
-      return 'bg-purple-100 text-purple-800'
+      return 'bg-cyan-100 text-cyan-800'
     case 'SENT_TO_DEV':
-      return 'bg-indigo-100 text-indigo-800'
+      return 'bg-blue-100 text-blue-800'
+    case 'LIVE':
+      return 'bg-green-100 text-green-800'
     case 'PUBLISHED':
       return 'bg-green-100 text-green-800'
     default:
       return 'bg-gray-100 text-gray-800'
+  }
+}
+
+function formatStatus(status: string) {
+  switch (status) {
+    case 'SUBMITTED':
+      return 'Pending Review'
+    case 'SENT_TO_DEV':
+      return 'Sent to Dev'
+    default:
+      return status.replace('_', ' ')
   }
 }
