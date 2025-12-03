@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { CloudArrowUpIcon, ChartBarIcon } from '@heroicons/react/24/outline'
+import { CloudArrowUpIcon, ChartBarIcon, FunnelIcon, ArrowsUpDownIcon } from '@heroicons/react/24/outline'
 import Link from 'next/link'
 import { getCountryFlag } from '@/lib/utils'
 
@@ -14,10 +14,16 @@ interface App {
   }
 }
 
+interface RankingData {
+  rank: number | null
+  prevRank: number | null
+  change: number | null
+}
+
 interface KeywordRow {
   keyword: string
   country: string
-  appRankings: { [appId: string]: number | null }
+  appRankings: { [appId: string]: RankingData }
 }
 
 interface MatrixData {
@@ -36,6 +42,8 @@ export default function AppRankingsPage() {
   const [countries, setCountries] = useState<string[]>([])
   const [selectedStore, setSelectedStore] = useState<string>('ANDROID')
   const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set())
+  const [filter, setFilter] = useState<'all' | 'drops' | 'gains' | 'changed'>('all')
+  const [sortBy, setSortBy] = useState<'alphabetical' | 'biggestDrops' | 'biggestGains' | 'bestRank'>('alphabetical')
 
   // Load selected cells from localStorage on mount
   useEffect(() => {
@@ -103,10 +111,6 @@ export default function AppRankingsPage() {
     }
   }
 
-  const filteredRows = selectedCountry
-    ? keywordRows.filter(row => row.country === selectedCountry)
-    : []
-
   // Filter apps by selected store AND by country
   const filteredApps = apps.filter(app => {
     // Filter by store
@@ -118,6 +122,64 @@ export default function AppRankingsPage() {
       row.country === selectedCountry && app.id in row.appRankings
     )
   })
+
+  // Helper to check if a row has any changes for filtered apps
+  const rowHasChanges = (row: KeywordRow, changeType: 'any' | 'drops' | 'gains') => {
+    return filteredApps.some(app => {
+      const data = row.appRankings[app.id]
+      if (!data || data.change === null) return false
+      if (changeType === 'any') return data.change !== 0
+      if (changeType === 'drops') return data.change < 0
+      if (changeType === 'gains') return data.change > 0
+      return false
+    })
+  }
+
+  // Get the max change (positive or negative) for sorting
+  const getMaxChange = (row: KeywordRow, type: 'drop' | 'gain') => {
+    let maxChange = 0
+    filteredApps.forEach(app => {
+      const data = row.appRankings[app.id]
+      if (data?.change !== null) {
+        if (type === 'drop' && data.change < maxChange) {
+          maxChange = data.change
+        } else if (type === 'gain' && data.change > maxChange) {
+          maxChange = data.change
+        }
+      }
+    })
+    return maxChange
+  }
+
+  // Get best rank in row
+  const getBestRank = (row: KeywordRow) => {
+    let best = Infinity
+    filteredApps.forEach(app => {
+      const data = row.appRankings[app.id]
+      if (data?.rank !== null && data.rank < best) {
+        best = data.rank
+      }
+    })
+    return best === Infinity ? 999 : best
+  }
+
+  // Apply filters and sorting
+  const filteredRows = keywordRows
+    .filter(row => row.country === selectedCountry)
+    .filter(row => {
+      if (filter === 'all') return true
+      if (filter === 'changed') return rowHasChanges(row, 'any')
+      if (filter === 'drops') return rowHasChanges(row, 'drops')
+      if (filter === 'gains') return rowHasChanges(row, 'gains')
+      return true
+    })
+    .sort((a, b) => {
+      if (sortBy === 'alphabetical') return a.keyword.localeCompare(b.keyword)
+      if (sortBy === 'biggestDrops') return getMaxChange(a, 'drop') - getMaxChange(b, 'drop')
+      if (sortBy === 'biggestGains') return getMaxChange(b, 'gain') - getMaxChange(a, 'gain')
+      if (sortBy === 'bestRank') return getBestRank(a) - getBestRank(b)
+      return 0
+    })
 
   const getRankColor = (rank: number | null) => {
     if (!rank) return ''
@@ -190,6 +252,38 @@ export default function AppRankingsPage() {
                     {getCountryFlag(country)} {country}
                   </button>
                 ))}
+              </div>
+
+              <div className="h-5 w-px bg-border" />
+
+              {/* Filter */}
+              <div className="flex items-center gap-1.5">
+                <FunnelIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                <select
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value as typeof filter)}
+                  className="input-field h-7 text-xs py-0 pr-6 w-auto"
+                >
+                  <option value="all">All Keywords</option>
+                  <option value="changed">Changed Only</option>
+                  <option value="drops">Drops Only</option>
+                  <option value="gains">Gains Only</option>
+                </select>
+              </div>
+
+              {/* Sort */}
+              <div className="flex items-center gap-1.5">
+                <ArrowsUpDownIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                  className="input-field h-7 text-xs py-0 pr-6 w-auto"
+                >
+                  <option value="alphabetical">A-Z</option>
+                  <option value="biggestDrops">Biggest Drops</option>
+                  <option value="biggestGains">Biggest Gains</option>
+                  <option value="bestRank">Best Rank</option>
+                </select>
               </div>
             </div>
 
@@ -267,7 +361,9 @@ export default function AppRankingsPage() {
                           {row.keyword}
                         </td>
                         {filteredApps.map(app => {
-                          const rank = row.appRankings[app.id]
+                          const data = row.appRankings[app.id]
+                          const rank = data?.rank ?? null
+                          const change = data?.change ?? null
                           const isSelected = isCellSelected(row.keyword, row.country, app.id)
                           return (
                             <td
@@ -278,9 +374,25 @@ export default function AppRankingsPage() {
                               onClick={() => handleCellClick(row.keyword, row.country, app.id)}
                             >
                               {rank !== null ? (
-                                <span className={`inline-flex items-center justify-center min-w-[44px] px-2 py-1 rounded text-xs font-bold ${getRankColor(rank)}`}>
-                                  #{rank}
-                                </span>
+                                <div className="flex flex-col items-center gap-0.5">
+                                  <span className={`inline-flex items-center justify-center min-w-[44px] px-2 py-1 rounded text-xs font-bold ${getRankColor(rank)}`}>
+                                    #{rank}
+                                  </span>
+                                  {change !== null && change !== 0 && (
+                                    <span className={`text-[10px] font-semibold ${
+                                      change > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                                    }`}>
+                                      {change > 0 ? `↑${change}` : `↓${Math.abs(change)}`}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : data?.prevRank ? (
+                                <div className="flex flex-col items-center gap-0.5">
+                                  <span className="text-muted-foreground/30 text-xs">-</span>
+                                  <span className="text-[10px] text-red-600 dark:text-red-400 font-semibold">
+                                    was #{data.prevRank}
+                                  </span>
+                                </div>
                               ) : (
                                 <span className="text-muted-foreground/30 text-xs">-</span>
                               )}

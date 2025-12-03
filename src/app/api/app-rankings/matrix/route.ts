@@ -12,8 +12,14 @@ export async function GET(request: NextRequest) {
     const endDate = new Date(dateStr)
     endDate.setHours(23, 59, 59, 999)
 
-    // Fetch all data in parallel
-    const [apps, keywords, rankings] = await Promise.all([
+    // Calculate previous day range
+    const prevStartDate = new Date(startDate)
+    prevStartDate.setDate(prevStartDate.getDate() - 1)
+    const prevEndDate = new Date(prevStartDate)
+    prevEndDate.setHours(23, 59, 59, 999)
+
+    // Fetch all data in parallel (including previous day's rankings)
+    const [apps, keywords, rankings, prevRankings] = await Promise.all([
       // Get all apps with their brands
       prisma.app.findMany({
         select: {
@@ -54,13 +60,40 @@ export async function GET(request: NextRequest) {
           rank: true,
         },
       }),
+
+      // Get rankings for the previous day
+      prisma.appRanking.findMany({
+        where: {
+          date: {
+            gte: prevStartDate,
+            lte: prevEndDate,
+          },
+        },
+        select: {
+          appId: true,
+          keyword: true,
+          country: true,
+          rank: true,
+        },
+      }),
     ])
 
     // Get unique countries from keywords
     const countries = Array.from(new Set(keywords.map(k => k.country))).sort()
 
-    // Build keyword rows map
-    const keywordRowsMap = new Map<string, { keyword: string; country: string; appRankings: Record<string, number | null> }>()
+    // Build previous rankings map for quick lookup
+    const prevRankingsMap = new Map<string, number>()
+    prevRankings.forEach((r) => {
+      const key = `${r.appId}|${r.keyword}|${r.country}`
+      prevRankingsMap.set(key, r.rank)
+    })
+
+    // Build keyword rows map with changes
+    const keywordRowsMap = new Map<string, {
+      keyword: string
+      country: string
+      appRankings: Record<string, { rank: number | null; prevRank: number | null; change: number | null }>
+    }>()
 
     // Initialize from keywords
     keywords.forEach((kw) => {
@@ -77,16 +110,43 @@ export async function GET(request: NextRequest) {
       // Initialize this app's ranking as null
       const row = keywordRowsMap.get(key)!
       if (!(kw.appId in row.appRankings)) {
-        row.appRankings[kw.appId] = null
+        row.appRankings[kw.appId] = { rank: null, prevRank: null, change: null }
       }
     })
 
-    // Fill in rankings
+    // Fill in rankings with change calculations
     rankings.forEach((r) => {
       const key = `${r.keyword}|${r.country}`
       if (keywordRowsMap.has(key)) {
         const row = keywordRowsMap.get(key)!
-        row.appRankings[r.appId] = r.rank
+        const prevKey = `${r.appId}|${r.keyword}|${r.country}`
+        const prevRank = prevRankingsMap.get(prevKey) ?? null
+
+        // Calculate change: positive = improved (rank decreased), negative = dropped (rank increased)
+        // Only calculate if both ranks are valid (> 0, since 0 = not ranked)
+        let change: number | null = null
+        if (r.rank > 0 && prevRank !== null && prevRank > 0) {
+          change = prevRank - r.rank // positive = improved, negative = dropped
+        }
+
+        row.appRankings[r.appId] = {
+          rank: r.rank > 0 ? r.rank : null, // Convert 0 to null for display
+          prevRank: prevRank !== null && prevRank > 0 ? prevRank : null,
+          change
+        }
+      }
+    })
+
+    // Also fill in previous-only rankings (keywords that were ranked yesterday but not today)
+    prevRankings.forEach((r) => {
+      const key = `${r.keyword}|${r.country}`
+      if (keywordRowsMap.has(key)) {
+        const row = keywordRowsMap.get(key)!
+        if (row.appRankings[r.appId] && row.appRankings[r.appId].rank === null && r.rank > 0) {
+          row.appRankings[r.appId].prevRank = r.rank
+          // Was ranked, now not ranked = dropped out
+          row.appRankings[r.appId].change = null // Can't calculate numerical change
+        }
       }
     })
 
@@ -101,6 +161,7 @@ export async function GET(request: NextRequest) {
       keywordRows,
       countries,
       date: dateStr,
+      prevDate: prevStartDate.toISOString().split('T')[0],
     })
   } catch (error) {
     console.error('Error fetching matrix data:', error)
