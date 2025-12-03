@@ -280,13 +280,16 @@ export default function BrandArticlesPage() {
                     Writer
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Type
+                    Words
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Scores
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Links
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
@@ -296,13 +299,13 @@ export default function BrandArticlesPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
                       Loading articles...
                     </td>
                   </tr>
                 ) : filteredArticles.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
                       No articles found for this brand.
                     </td>
                   </tr>
@@ -321,7 +324,7 @@ export default function BrandArticlesPage() {
                             </div>
                             {article.primaryKeyword && (
                               <div className="text-xs text-gray-500">
-                                Keyword: {article.primaryKeyword}
+                                {article.primaryKeyword}
                               </div>
                             )}
                           </div>
@@ -331,7 +334,7 @@ export default function BrandArticlesPage() {
                         {article.writer || article.writtenBy?.name || '-'}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {article.articleType.replace('_', ' ')}
+                        {article.finalWordCount || article.originalWc || '-'}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="flex flex-col gap-1">
@@ -350,7 +353,7 @@ export default function BrandArticlesPage() {
                             </span>
                           )}
                           {article.aiScore === null && article.plagiarismScore === null && (
-                            <span className="text-xs text-gray-400">Not checked</span>
+                            <span className="text-xs text-gray-400">-</span>
                           )}
                         </div>
                       </td>
@@ -359,30 +362,48 @@ export default function BrandArticlesPage() {
                           {article.status === 'SENT_TO_DEV' ? 'Sent to Dev' : article.status.replace('_', ' ')}
                         </span>
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex gap-2">
+                      <td className="px-4 py-4 whitespace-nowrap text-sm">
+                        <div className="flex flex-col gap-1">
                           {article.url && (
                             <a
                               href={article.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-green-600 hover:text-green-800"
-                              title="View Live Page"
+                              className="inline-flex items-center gap-1 text-green-600 hover:text-green-800 font-medium"
                             >
-                              <EyeIcon className="h-4 w-4" />
+                              <EyeIcon className="h-3.5 w-3.5" />
+                              View Live
                             </a>
                           )}
-                          {article.documentUrl && (
+                          {article.contentUrl && (
+                            <a
+                              href={article.contentUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800"
+                            >
+                              <DocumentTextIcon className="h-3.5 w-3.5" />
+                              Final Doc
+                            </a>
+                          )}
+                          {article.documentUrl && !article.contentUrl && (
                             <a
                               href={article.documentUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-blue-600 hover:text-blue-800"
-                              title="View Document"
+                              className="inline-flex items-center gap-1 text-gray-600 hover:text-gray-800"
                             >
-                              Doc
+                              <DocumentTextIcon className="h-3.5 w-3.5" />
+                              Draft Doc
                             </a>
                           )}
+                          {!article.url && !article.contentUrl && !article.documentUrl && (
+                            <span className="text-xs text-gray-400">-</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex gap-2">
                           <button
                             onClick={() => setSelectedArticle(article)}
                             className="text-indigo-600 hover:text-indigo-900"

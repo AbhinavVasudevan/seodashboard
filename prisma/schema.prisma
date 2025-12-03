@@ -25,12 +25,12 @@ model User {
 }
 
 model Brand {
-  id                String     @id @default(cuid())
+  id                String              @id @default(cuid())
   name              String
   domain            String?
   description       String?
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
   semrushProjectId  String?
   semrushCampaignId String?
   semrushLastSync   DateTime?
@@ -38,9 +38,11 @@ model Brand {
   apps              App[]
   articles          Article[]
   backlinks         Backlink[]
-  user              User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  backlinkDeals     BrandBacklinkDeal[]
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   keywords          Keyword[]
 
+  @@index([userId])
   @@map("brands")
 }
 
@@ -57,6 +59,7 @@ model App {
   keywords     Keyword[]
   rankTrackers RankTracker[]
 
+  @@index([brandId])
   @@map("apps")
 }
 
@@ -73,6 +76,8 @@ model AppRanking {
   app       App      @relation(fields: [appId], references: [id], onDelete: Cascade)
 
   @@unique([appId, keyword, country, date])
+  @@index([appId])
+  @@index([date])
   @@map("app_rankings")
 }
 
@@ -90,6 +95,8 @@ model Keyword {
 
   @@unique([brandId, keyword, country])
   @@unique([appId, keyword, country])
+  @@index([brandId])
+  @@index([appId])
   @@map("keywords")
 }
 
@@ -107,6 +114,8 @@ model KeywordRanking {
   keyword      Keyword  @relation(fields: [keywordId], references: [id], onDelete: Cascade)
 
   @@unique([keywordId, date])
+  @@index([keywordId])
+  @@index([date])
   @@map("keyword_rankings")
 }
 
@@ -124,6 +133,7 @@ model RankTracker {
   app         App                  @relation(fields: [appId], references: [id], onDelete: Cascade)
 
   @@unique([appId, keyword, country, domain])
+  @@index([appId])
   @@map("rank_trackers")
 }
 
@@ -147,25 +157,28 @@ model RankTrackerHistory {
 }
 
 model Backlink {
-  id               String         @id @default(cuid())
-  rootDomain       String
-  referringPageUrl String
-  dr               Int?
-  traffic          Int?
-  targetUrl        String
-  anchor           String?
-  dofollow         Boolean        @default(true)
-  status           BacklinkStatus
-  price            Float?
-  builtOn          DateTime?
-  supplierEmail    String?
-  liveFor          Int?
-  invoice          String?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-  brandId          String
-  brand            Brand          @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  id                   String         @id @default(cuid())
+  rootDomain           String
+  referringPageUrl     String
+  referringPageTitle   String?
+  dr                   Int?           // Domain Rating
+  ur                   Int?           // URL Rating
+  domainTraffic        Int?
+  targetUrl            String
+  anchor               String?
+  linkType             String?        // dofollow, nofollow, ugc, sponsored
+  content              String?        // text, image, form, frame
+  platform             String?
+  firstSeen            String?
+  lastSeen             String?
+  price                Float?
+  remarks              String?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  brandId              String
+  brand                Brand          @relation(fields: [brandId], references: [id], onDelete: Cascade)
 
+  @@index([brandId])
   @@map("backlinks")
 }
 
@@ -202,6 +215,9 @@ model Article {
   requestedBy     User          @relation("RequestedArticles", fields: [requestedById], references: [id])
   writtenBy       User?         @relation("WrittenArticles", fields: [writerId], references: [id])
 
+  @@index([brandId])
+  @@index([status])
+  @@index([requestedById])
   @@map("articles")
 }
 
@@ -210,12 +226,6 @@ enum Platform {
   IOS
 }
 
-enum BacklinkStatus {
-  PENDING
-  PUBLISHED
-  REJECTED
-  EXPIRED
-}
 
 enum ArticleType {
   ARTICLE
@@ -240,4 +250,114 @@ enum UserRole {
   ADMIN
   SEO
   WRITER
+}
+
+// ==========================================
+// BACKLINK DIRECTORY MODELS
+// ==========================================
+
+model BacklinkProspect {
+  id              String              @id @default(cuid())
+  referringPageUrl String             @unique
+  rootDomain      String
+  domainRating    Int?
+  domainTraffic   Int?
+  nofollow        Boolean             @default(false)
+  contactedOn     DateTime?
+  contactMethod   ContactMethod?
+  contactEmail    String?
+  contactFormUrl  String?
+  remarks         String?
+  content         String?
+  status          ProspectStatus      @default(NOT_CONTACTED)
+  source          String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  brandDeals      BrandBacklinkDeal[]
+
+  @@index([status])
+  @@index([rootDomain])
+  @@map("backlink_prospects")
+}
+
+model AhrefsImport {
+  id                  String    @id @default(cuid())
+  referringPageTitle  String?
+  referringPageUrl    String
+  language            String?
+  platform            String?
+  httpCode            Int?
+  domainRating        Int?
+  urlRating           Int?
+  domainTraffic       Int?
+  referringDomains    Int?
+  linkedDomains       Int?
+  externalLinks       Int?
+  pageTraffic         Int?
+  keywords            Int?
+  targetUrl           String?
+  anchor              String?
+  linkType            String?
+  contentType         String?
+  nofollow            Boolean   @default(false)
+  ugc                 Boolean   @default(false)
+  sponsored           Boolean   @default(false)
+  firstSeen           DateTime?
+  lastSeen            DateTime?
+  importedAt          DateTime  @default(now())
+  importBatchId       String
+  competitorDomain    String
+  isProspect          Boolean   @default(false)
+
+  @@map("ahrefs_imports")
+}
+
+model BrandBacklinkDeal {
+  id               String            @id @default(cuid())
+  brandId          String
+  brand            Brand             @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  prospectId       String?
+  prospect         BacklinkProspect? @relation(fields: [prospectId], references: [id])
+  referringPageUrl String
+  linkUrl          String
+  linkAnchor       String?
+  domainRating     Int?
+  linkType         String?
+  price            Float?
+  status           DealStatus        @default(PENDING)
+  remarks          String?
+  publishedOn      DateTime?
+  expiresOn        DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@unique([brandId, referringPageUrl])
+  @@index([brandId])
+  @@index([status])
+  @@map("brand_backlink_deals")
+}
+
+enum ContactMethod {
+  EMAIL
+  CONTACT_FORM
+  SOCIAL_MEDIA
+  OTHER
+}
+
+enum ProspectStatus {
+  NOT_CONTACTED
+  CONTACTED
+  RESPONDED
+  NEGOTIATING
+  DEAL_LOCKED
+  REJECTED
+  NO_RESPONSE
+}
+
+enum DealStatus {
+  PENDING
+  APPROVED
+  LIVE
+  EXPIRED
+  CANCELLED
 }

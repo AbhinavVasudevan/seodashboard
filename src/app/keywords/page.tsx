@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { MagnifyingGlassIcon, PlusIcon, ChartBarIcon, XMarkIcon, ArrowPathIcon, CloudArrowDownIcon } from '@heroicons/react/24/outline'
+import { MagnifyingGlassIcon, PlusIcon, ChartBarIcon, XMarkIcon, ArrowPathIcon, CloudArrowDownIcon, DocumentTextIcon } from '@heroicons/react/24/outline'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { getCountryFlag } from '@/lib/utils'
 
@@ -51,8 +51,7 @@ export default function KeywordsPage() {
   const [syncBrandId, setSyncBrandId] = useState('')
 
   useEffect(() => {
-    fetchKeywords()
-    fetchBrands()
+    fetchInitialData()
   }, [])
 
   useEffect(() => {
@@ -61,33 +60,43 @@ export default function KeywordsPage() {
     }
   }, [selectedKeyword])
 
-  const fetchKeywords = async () => {
+  const fetchInitialData = async () => {
     try {
-      // Fetch only organic SEO keywords (linked to brands, not apps)
-      const response = await fetch('/api/keywords?type=organic')
-      const data = await response.json()
-      setKeywords(data)
+      // Fetch keywords and brands in parallel
+      const [keywordsResponse, brandsResponse] = await Promise.all([
+        fetch('/api/keywords?type=organic'),
+        fetch('/api/brands')
+      ])
 
-      // Extract unique countries
-      const uniqueCountries = Array.from(new Set(data.map((k: Keyword) => k.country))).sort() as string[]
+      const [keywordsData, brandsData] = await Promise.all([
+        keywordsResponse.json(),
+        brandsResponse.json()
+      ])
+
+      setKeywords(keywordsData)
+      setBrands(brandsData)
+
+      const uniqueCountries = Array.from(new Set(keywordsData.map((k: Keyword) => k.country))).sort() as string[]
       setCountries(uniqueCountries)
       if (uniqueCountries.length > 0 && !selectedCountry) {
         setSelectedCountry(uniqueCountries[0])
       }
     } catch (error) {
-      console.error('Error fetching keywords:', error)
+      console.error('Error fetching data:', error)
     } finally {
       setIsLoading(false)
     }
   }
 
-  const fetchBrands = async () => {
+  const fetchKeywords = async () => {
     try {
-      const response = await fetch('/api/brands')
+      const response = await fetch('/api/keywords?type=organic')
       const data = await response.json()
-      setBrands(data)
+      setKeywords(data)
+      const uniqueCountries = Array.from(new Set(data.map((k: Keyword) => k.country))).sort() as string[]
+      setCountries(uniqueCountries)
     } catch (error) {
-      console.error('Error fetching brands:', error)
+      console.error('Error fetching keywords:', error)
     }
   }
 
@@ -105,12 +114,9 @@ export default function KeywordsPage() {
     try {
       const response = await fetch('/api/keywords', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newKeyword),
       })
-
       if (response.ok) {
         setNewKeyword({ keyword: '', country: 'GB', brandId: '' })
         setShowAddForm(false)
@@ -123,19 +129,15 @@ export default function KeywordsPage() {
 
   const handleSEMRushSync = async () => {
     if (!syncBrandId) return
-
     setIsSyncing(true)
     setSyncMessage(null)
-
     try {
       const response = await fetch('/api/semrush/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ brandId: syncBrandId })
       })
-
       const data = await response.json()
-
       if (data.success) {
         setSyncMessage({
           type: 'success',
@@ -156,19 +158,15 @@ export default function KeywordsPage() {
 
   const handleRefreshRankings = async () => {
     if (!syncBrandId) return
-
     setIsSyncing(true)
     setSyncMessage(null)
-
     try {
       const response = await fetch('/api/semrush/refresh-rankings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ brandId: syncBrandId })
       })
-
       const data = await response.json()
-
       if (data.success) {
         setSyncMessage({
           type: 'success',
@@ -187,7 +185,6 @@ export default function KeywordsPage() {
     }
   }
 
-  // Filter keywords
   const filteredKeywords = keywords.filter(keyword => {
     const matchesSearch = keyword.keyword.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (keyword.brand?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
@@ -196,7 +193,6 @@ export default function KeywordsPage() {
     return matchesSearch && matchesCountry && matchesBrand
   })
 
-  // Get unique brands from filtered keywords
   const brandsInKeywords = Array.from(new Set(keywords.filter(k => k.brand).map(k => JSON.stringify({ id: k.brand.id, name: k.brand.name }))))
     .map(s => JSON.parse(s))
     .sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name))
@@ -212,38 +208,44 @@ export default function KeywordsPage() {
 
   const selectedKeywordData = keywords.find(k => k.id === selectedKeyword)
 
+  const getPositionBadge = (position: number) => {
+    if (position <= 10) return 'badge-success'
+    if (position <= 50) return 'badge-warning'
+    return 'badge-destructive'
+  }
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-          <p className="mt-2 text-gray-600">Loading keywords...</p>
+      <div className="page-container">
+        <div className="page-content">
+          <div className="flex items-center justify-center py-12">
+            <div className="spinner-lg text-primary"></div>
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="page-container">
       <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-4">
         {/* Filter Bar */}
-        <div className="mb-4 bg-white rounded-lg border border-gray-200 p-3">
+        <div className="card p-3 mb-4">
           <div className="flex items-center justify-between gap-4 flex-wrap">
-            {/* Left side filters */}
             <div className="flex items-center gap-3 flex-wrap">
               {/* Search */}
               <div className="relative">
-                <MagnifyingGlassIcon className="h-4 w-4 absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <MagnifyingGlassIcon className="h-4 w-4 absolute left-2.5 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="text"
                   placeholder="Search..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 w-48"
+                  className="input-field pl-8 h-8 text-xs w-48"
                 />
               </div>
 
-              <div className="h-5 w-px bg-gray-200" />
+              <div className="h-5 w-px bg-border" />
 
               {/* Countries */}
               <div className="flex items-center gap-1 flex-wrap">
@@ -253,8 +255,8 @@ export default function KeywordsPage() {
                     onClick={() => setSelectedCountry(selectedCountry === country ? '' : country)}
                     className={`px-2 py-1 text-xs font-medium rounded transition-all ${
                       selectedCountry === country
-                        ? 'bg-primary-600 text-white'
-                        : 'text-gray-600 hover:bg-gray-100'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:bg-muted'
                     }`}
                   >
                     {getCountryFlag(country)} {country}
@@ -262,38 +264,36 @@ export default function KeywordsPage() {
                 ))}
               </div>
 
-              <div className="h-5 w-px bg-gray-200" />
+              <div className="h-5 w-px bg-border" />
 
               {/* Brand Filter */}
               <select
                 value={selectedBrand}
                 onChange={(e) => setSelectedBrand(e.target.value)}
-                className="px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="input-field h-8 text-xs w-auto"
               >
                 <option value="">All Brands</option>
                 {brandsInKeywords.map((brand) => (
-                  <option key={brand.id} value={brand.id}>
-                    {brand.name}
-                  </option>
+                  <option key={brand.id} value={brand.id}>{brand.name}</option>
                 ))}
               </select>
             </div>
 
             {/* Right side */}
             <div className="flex items-center gap-3">
-              <span className="text-xs text-gray-500">
-                <span className="font-semibold text-gray-700">{filteredKeywords.length}</span> keywords
+              <span className="text-xs text-muted-foreground">
+                <span className="font-semibold text-foreground">{filteredKeywords.length}</span> keywords
               </span>
               <button
                 onClick={() => setShowSyncModal(true)}
-                className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-white bg-orange-500 hover:bg-orange-600 rounded transition-colors"
+                className="btn-secondary h-8 text-xs px-3"
               >
                 <CloudArrowDownIcon className="h-3.5 w-3.5" />
                 SEMRush Sync
               </button>
               <button
                 onClick={() => setShowAddForm(true)}
-                className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-white bg-primary-600 hover:bg-primary-700 rounded transition-colors"
+                className="btn-primary h-8 text-xs px-3"
               >
                 <PlusIcon className="h-3.5 w-3.5" />
                 Add
@@ -306,14 +306,15 @@ export default function KeywordsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Keywords List */}
           <div className="lg:col-span-1">
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-              <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                <h3 className="text-sm font-semibold text-gray-700">Organic SEO Keywords</h3>
+            <div className="card overflow-hidden">
+              <div className="card-header">
+                <h3 className="text-sm font-semibold">Organic SEO Keywords</h3>
               </div>
-              <div className="divide-y divide-gray-100 max-h-[calc(100vh-200px)] overflow-y-auto">
+              <div className="divide-y divide-border max-h-[calc(100vh-220px)] overflow-y-auto scrollbar-thin">
                 {filteredKeywords.length === 0 ? (
-                  <div className="px-4 py-8 text-center text-gray-500 text-sm">
-                    No keywords found
+                  <div className="empty-state py-8">
+                    <DocumentTextIcon className="empty-state-icon h-8 w-8" />
+                    <p className="text-sm text-muted-foreground">No keywords found</p>
                   </div>
                 ) : (
                   filteredKeywords.map((keyword) => (
@@ -322,25 +323,19 @@ export default function KeywordsPage() {
                       onClick={() => setSelectedKeyword(keyword.id)}
                       className={`px-4 py-3 cursor-pointer transition-colors ${
                         selectedKeyword === keyword.id
-                          ? 'bg-primary-50 border-l-2 border-l-primary-600'
-                          : 'hover:bg-gray-50 border-l-2 border-l-transparent'
+                          ? 'bg-primary/5 border-l-2 border-l-primary'
+                          : 'hover:bg-muted/50 border-l-2 border-l-transparent'
                       }`}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">{keyword.keyword}</p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-sm font-medium text-foreground truncate">{keyword.keyword}</p>
+                          <p className="text-xs text-muted-foreground">
                             {getCountryFlag(keyword.country)} {keyword.country} {keyword.brand && `• ${keyword.brand.name}`}
                           </p>
                         </div>
                         {keyword.rankings.length > 0 && (
-                          <span className={`ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${
-                            keyword.rankings[0].position <= 10
-                              ? 'bg-green-100 text-green-700'
-                              : keyword.rankings[0].position <= 50
-                              ? 'bg-yellow-100 text-yellow-700'
-                              : 'bg-red-100 text-red-700'
-                          }`}>
+                          <span className={`ml-2 ${getPositionBadge(keyword.rankings[0].position)} font-bold`}>
                             #{keyword.rankings[0].position}
                           </span>
                         )}
@@ -357,24 +352,18 @@ export default function KeywordsPage() {
             {selectedKeyword && selectedKeywordData ? (
               <div className="space-y-4">
                 {/* Selected Keyword Info */}
-                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                <div className="card p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h2 className="text-lg font-semibold text-gray-900">{selectedKeywordData.keyword}</h2>
-                      <p className="text-sm text-gray-500">
+                      <h2 className="text-lg font-semibold text-foreground">{selectedKeywordData.keyword}</h2>
+                      <p className="text-sm text-muted-foreground">
                         {getCountryFlag(selectedKeywordData.country)} {selectedKeywordData.country} {selectedKeywordData.brand && `• ${selectedKeywordData.brand.name}`}
                       </p>
                     </div>
                     {selectedKeywordData.rankings.length > 0 && (
                       <div className="text-right">
-                        <p className="text-xs text-gray-500">Current Position</p>
-                        <span className={`inline-flex items-center px-3 py-1 rounded text-lg font-bold ${
-                          selectedKeywordData.rankings[0].position <= 10
-                            ? 'bg-green-100 text-green-700'
-                            : selectedKeywordData.rankings[0].position <= 50
-                            ? 'bg-yellow-100 text-yellow-700'
-                            : 'bg-red-100 text-red-700'
-                        }`}>
+                        <p className="text-xs text-muted-foreground">Current Position</p>
+                        <span className={`inline-flex items-center px-3 py-1 rounded text-lg font-bold ${getPositionBadge(selectedKeywordData.rankings[0].position)}`}>
                           #{selectedKeywordData.rankings[0].position}
                         </span>
                       </div>
@@ -383,22 +372,22 @@ export default function KeywordsPage() {
                 </div>
 
                 {/* Chart */}
-                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                  <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                    <h3 className="text-sm font-semibold text-gray-700">Ranking History</h3>
+                <div className="card overflow-hidden">
+                  <div className="card-header">
+                    <h3 className="text-sm font-semibold">Ranking History</h3>
                   </div>
                   {getChartData().length > 0 ? (
                     <div className="p-4 h-56">
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={getChartData()}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                          <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                          <YAxis reversed tick={{ fontSize: 11 }} />
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                          <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                          <YAxis reversed tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
                           <Tooltip />
                           <Line
                             type="monotone"
                             dataKey="position"
-                            stroke="#667eea"
+                            stroke="hsl(var(--primary))"
                             strokeWidth={2}
                             dot={{ r: 3 }}
                           />
@@ -406,65 +395,57 @@ export default function KeywordsPage() {
                       </ResponsiveContainer>
                     </div>
                   ) : (
-                    <div className="text-center py-8">
-                      <ChartBarIcon className="h-10 w-10 text-gray-300 mx-auto mb-2" />
-                      <p className="text-sm text-gray-500">No ranking data available</p>
+                    <div className="empty-state py-8">
+                      <ChartBarIcon className="empty-state-icon h-8 w-8" />
+                      <p className="text-sm text-muted-foreground">No ranking data available</p>
                     </div>
                   )}
                 </div>
 
                 {/* Rankings Table */}
                 {rankings.length > 0 && (
-                  <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                    <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                      <h3 className="text-sm font-semibold text-gray-700">Historical Data</h3>
+                  <div className="table-container">
+                    <div className="card-header">
+                      <h3 className="text-sm font-semibold">Historical Data</h3>
                     </div>
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
+                    <div className="table-wrapper scrollbar-thin">
+                      <table className="data-table">
+                        <thead>
                           <tr>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Date</th>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Position</th>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">URL</th>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Traffic</th>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Volume</th>
+                            <th>Date</th>
+                            <th>Position</th>
+                            <th>URL</th>
+                            <th>Traffic</th>
+                            <th>Volume</th>
                           </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-100">
+                        <tbody>
                           {rankings.slice(0, 10).map((ranking) => (
-                            <tr key={ranking.id} className="hover:bg-gray-50">
-                              <td className="px-4 py-2 text-xs text-gray-600">
+                            <tr key={ranking.id}>
+                              <td className="cell-secondary text-xs">
                                 {new Date(ranking.date).toLocaleDateString()}
                               </td>
-                              <td className="px-4 py-2">
-                                <span className={`inline-flex px-2 py-0.5 text-xs font-bold rounded ${
-                                  ranking.position <= 10
-                                    ? 'bg-green-100 text-green-700'
-                                    : ranking.position <= 50
-                                    ? 'bg-yellow-100 text-yellow-700'
-                                    : 'bg-red-100 text-red-700'
-                                }`}>
+                              <td>
+                                <span className={`${getPositionBadge(ranking.position)} font-bold`}>
                                   #{ranking.position}
                                 </span>
                               </td>
-                              <td className="px-4 py-2 text-xs text-gray-500">
+                              <td className="cell-truncate">
                                 {ranking.url ? (
                                   <a
                                     href={ranking.url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="text-primary-600 hover:underline truncate max-w-[200px] block"
+                                    className="link-external text-xs"
                                   >
                                     {ranking.url}
                                   </a>
-                                ) : (
-                                  '-'
-                                )}
+                                ) : '-'}
                               </td>
-                              <td className="px-4 py-2 text-xs text-gray-500">
+                              <td className="cell-secondary text-xs">
                                 {ranking.traffic?.toLocaleString() || '-'}
                               </td>
-                              <td className="px-4 py-2 text-xs text-gray-500">
+                              <td className="cell-secondary text-xs">
                                 {ranking.searchVolume?.toLocaleString() || '-'}
                               </td>
                             </tr>
@@ -476,10 +457,10 @@ export default function KeywordsPage() {
                 )}
               </div>
             ) : (
-              <div className="bg-white border border-gray-200 rounded-lg">
-                <div className="text-center py-16">
-                  <ChartBarIcon className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500">Select a keyword to view details</p>
+              <div className="card">
+                <div className="empty-state py-16">
+                  <ChartBarIcon className="empty-state-icon" />
+                  <p className="text-muted-foreground">Select a keyword to view details</p>
                 </div>
               </div>
             )}
@@ -488,38 +469,31 @@ export default function KeywordsPage() {
 
         {/* Add Keyword Modal */}
         {showAddForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-5 w-full max-w-md shadow-xl">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Add Organic SEO Keyword</h3>
-                <button
-                  onClick={() => setShowAddForm(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
+          <div className="modal-overlay">
+            <div className="modal-content max-w-md">
+              <div className="modal-header">
+                <h3 className="modal-title">Add Organic SEO Keyword</h3>
+                <button onClick={() => setShowAddForm(false)} className="action-btn">
                   <XMarkIcon className="h-5 w-5" />
                 </button>
               </div>
-              <div className="space-y-4">
+              <div className="modal-body space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Keyword
-                  </label>
+                  <label className="input-label">Keyword</label>
                   <input
                     type="text"
                     value={newKeyword.keyword}
                     onChange={(e) => setNewKeyword({ ...newKeyword, keyword: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className="input-field"
                     placeholder="Enter keyword..."
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Country
-                  </label>
+                  <label className="input-label">Country</label>
                   <select
                     value={newKeyword.country}
                     onChange={(e) => setNewKeyword({ ...newKeyword, country: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className="input-field"
                   >
                     <option value="GB">{getCountryFlag('GB')} United Kingdom</option>
                     <option value="US">{getCountryFlag('US')} United States</option>
@@ -532,34 +506,27 @@ export default function KeywordsPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Brand
-                  </label>
+                  <label className="input-label">Brand</label>
                   <select
                     value={newKeyword.brandId}
                     onChange={(e) => setNewKeyword({ ...newKeyword, brandId: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className="input-field"
                   >
                     <option value="">Select a brand...</option>
                     {brands.map((brand) => (
-                      <option key={brand.id} value={brand.id}>
-                        {brand.name}
-                      </option>
+                      <option key={brand.id} value={brand.id}>{brand.name}</option>
                     ))}
                   </select>
                 </div>
               </div>
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={() => setShowAddForm(false)}
-                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                >
+              <div className="modal-footer">
+                <button onClick={() => setShowAddForm(false)} className="btn-secondary flex-1">
                   Cancel
                 </button>
                 <button
                   onClick={handleAddKeyword}
                   disabled={!newKeyword.keyword || !newKeyword.brandId}
-                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="btn-primary flex-1"
                 >
                   Add Keyword
                 </button>
@@ -570,40 +537,34 @@ export default function KeywordsPage() {
 
         {/* SEMRush Sync Modal */}
         {showSyncModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-5 w-full max-w-md shadow-xl">
-              <div className="flex items-center justify-between mb-4">
+          <div className="modal-overlay">
+            <div className="modal-content max-w-md">
+              <div className="modal-header">
                 <div className="flex items-center gap-2">
-                  <svg className="w-5 h-5 text-orange-500" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
-                  </svg>
-                  <h3 className="text-lg font-semibold text-gray-900">SEMRush Sync</h3>
+                  <CloudArrowDownIcon className="w-5 h-5 text-orange-500" />
+                  <h3 className="modal-title">SEMRush Sync</h3>
                 </div>
                 <button
                   onClick={() => { setShowSyncModal(false); setSyncBrandId(''); setSyncMessage(null) }}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="action-btn"
                 >
                   <XMarkIcon className="h-5 w-5" />
                 </button>
               </div>
 
-              {syncMessage && (
-                <div className={`mb-4 p-3 rounded-lg text-sm ${
-                  syncMessage.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
-                }`}>
-                  {syncMessage.text}
-                </div>
-              )}
+              <div className="modal-body space-y-4">
+                {syncMessage && (
+                  <div className={syncMessage.type === 'success' ? 'alert-success' : 'alert-error'}>
+                    {syncMessage.text}
+                  </div>
+                )}
 
-              <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Select Brand to Sync
-                  </label>
+                  <label className="input-label">Select Brand to Sync</label>
                   <select
                     value={syncBrandId}
                     onChange={(e) => setSyncBrandId(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    className="input-field"
                     disabled={isSyncing}
                   >
                     <option value="">Select a brand...</option>
@@ -613,19 +574,19 @@ export default function KeywordsPage() {
                       </option>
                     ))}
                   </select>
-                  <p className="text-xs text-gray-500 mt-1">Only brands with domains can sync with SEMRush</p>
+                  <p className="input-hint">Only brands with domains can sync with SEMRush</p>
                 </div>
 
-                <div className="bg-gray-50 p-3 rounded-lg text-xs text-gray-600 space-y-1">
+                <div className="alert-info text-xs space-y-1">
                   <p><strong>Full Sync:</strong> Imports all keywords from SEMRush Position Tracking + today&apos;s rankings</p>
-                  <p><strong>Refresh Rankings:</strong> Updates rankings for existing keywords only (preserves manual entries)</p>
+                  <p><strong>Refresh Rankings:</strong> Updates rankings for existing keywords only</p>
                 </div>
               </div>
 
-              <div className="flex gap-3 mt-6">
+              <div className="modal-footer">
                 <button
                   onClick={() => { setShowSyncModal(false); setSyncBrandId(''); setSyncMessage(null) }}
-                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                  className="btn-secondary"
                   disabled={isSyncing}
                 >
                   Cancel
@@ -633,17 +594,17 @@ export default function KeywordsPage() {
                 <button
                   onClick={handleRefreshRankings}
                   disabled={!syncBrandId || isSyncing}
-                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="btn-secondary"
                 >
-                  {isSyncing ? <ArrowPathIcon className="h-4 w-4 animate-spin" /> : <ArrowPathIcon className="h-4 w-4" />}
+                  {isSyncing ? <span className="spinner-sm"></span> : <ArrowPathIcon className="h-4 w-4" />}
                   Refresh
                 </button>
                 <button
                   onClick={handleSEMRushSync}
                   disabled={!syncBrandId || isSyncing}
-                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="btn-primary"
                 >
-                  {isSyncing ? <ArrowPathIcon className="h-4 w-4 animate-spin" /> : <CloudArrowDownIcon className="h-4 w-4" />}
+                  {isSyncing ? <span className="spinner-sm"></span> : <CloudArrowDownIcon className="h-4 w-4" />}
                   Full Sync
                 </button>
               </div>

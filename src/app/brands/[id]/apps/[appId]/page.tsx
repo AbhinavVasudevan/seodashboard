@@ -58,8 +58,15 @@ export default function AppDetailPage() {
       setIsLoading(true)
       setError('')
 
-      // Fetch brand details
-      const brandResponse = await fetch('/api/brands')
+      // Fetch all data in parallel
+      const [brandResponse, appsResponse, keywordsResponse, rankingsResponse] = await Promise.all([
+        fetch('/api/brands'),
+        fetch(`/api/apps?brandId=${brandId}`),
+        fetch(`/api/keywords?appId=${appId}`),
+        fetch(`/api/app-rankings/upload?appId=${appId}&limit=50`)
+      ])
+
+      // Process brand
       if (brandResponse.ok) {
         const brands = await brandResponse.json()
         const currentBrand = brands.find((b: Brand) => b.id === brandId)
@@ -68,28 +75,23 @@ export default function AppDetailPage() {
         }
       }
 
-      // Fetch app details
-      const appsResponse = await fetch(`/api/apps?brandId=${brandId}`)
+      // Process app
       if (appsResponse.ok) {
         const apps = await appsResponse.json()
         const currentApp = apps.find((a: App) => a.id === appId)
-        
         if (!currentApp) {
           throw new Error('App not found')
         }
-        
         setApp(currentApp)
       }
 
-      // Fetch keywords for this app
-      const keywordsResponse = await fetch(`/api/keywords?appId=${appId}`)
+      // Process keywords
       if (keywordsResponse.ok) {
         const keywordsData = await keywordsResponse.json()
         setKeywords(keywordsData)
       }
 
-      // Fetch latest rankings for this app
-      const rankingsResponse = await fetch(`/api/app-rankings/upload?appId=${appId}&limit=50`)
+      // Process rankings
       if (rankingsResponse.ok) {
         const rankingsData = await rankingsResponse.json()
         setRankings(rankingsData)

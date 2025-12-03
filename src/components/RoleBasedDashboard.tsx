@@ -16,9 +16,6 @@ import {
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { getCountryFlag } from '@/lib/utils'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
 
 interface RankingChange {
   appName: string
@@ -79,15 +76,11 @@ export default function RoleBasedDashboard() {
 
   if (status === 'loading' || isLoading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-24 w-full" />
-          ))}
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Skeleton className="h-96 w-full" />
-          <Skeleton className="h-96 w-full" />
+      <div className="page-container">
+        <div className="page-content">
+          <div className="flex items-center justify-center py-12">
+            <div className="spinner-lg text-primary"></div>
+          </div>
         </div>
       </div>
     )
@@ -99,138 +92,125 @@ export default function RoleBasedDashboard() {
 
   if (currentUser?.role === 'ADMIN' || currentUser?.role === 'SEO') {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="page-container">
+        <div className="page-content">
+          {/* Page Header */}
+          <div className="mb-6">
+            <h1 className="page-title">Dashboard</h1>
+            <p className="text-sm text-muted-foreground">App Store ranking changes in the last 24 hours</p>
+          </div>
+
           {/* Alert Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <Card className={alerts?.summary.significantDrops ? 'border-destructive/50 bg-destructive/5' : ''}>
-              <CardContent className="pt-4">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${alerts?.summary.significantDrops ? 'bg-destructive/10' : 'bg-muted'}`}>
-                    <ExclamationTriangleIcon className={`h-5 w-5 ${alerts?.summary.significantDrops ? 'text-destructive' : 'text-muted-foreground'}`} />
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Big Drops (10+)</p>
-                    <p className={`text-xl font-bold ${alerts?.summary.significantDrops ? 'text-destructive' : 'text-muted-foreground'}`}>
-                      {alerts?.summary.significantDrops || 0}
-                    </p>
+            <div className={`stat-card ${alerts?.summary.significantDrops ? 'border-destructive/50 bg-destructive/5' : ''}`}>
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${alerts?.summary.significantDrops ? 'bg-destructive/10' : 'bg-muted'}`}>
+                  <ExclamationTriangleIcon className={`h-5 w-5 ${alerts?.summary.significantDrops ? 'text-destructive' : 'text-muted-foreground'}`} />
+                </div>
+                <div>
+                  <div className="stat-label">Big Drops (10+)</div>
+                  <div className={`stat-value ${alerts?.summary.significantDrops ? 'text-destructive' : 'text-muted-foreground'}`}>
+                    {alerts?.summary.significantDrops || 0}
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
-            <Card className="border-orange-200 bg-orange-50">
-              <CardContent className="pt-4">
-                <div className="flex items-center gap-3">
-                  <div className="bg-orange-100 p-2 rounded-lg">
-                    <ArrowTrendingDownIcon className="h-5 w-5 text-orange-600" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Total Drops</p>
-                    <p className="text-xl font-bold text-orange-600">{alerts?.summary.totalDrops || 0}</p>
-                  </div>
+            <div className="stat-card border-orange-200 bg-orange-50">
+              <div className="flex items-center gap-3">
+                <div className="bg-orange-100 p-2 rounded-lg">
+                  <ArrowTrendingDownIcon className="h-5 w-5 text-orange-600" />
                 </div>
-              </CardContent>
-            </Card>
+                <div>
+                  <div className="stat-label">Total Drops</div>
+                  <div className="stat-value text-orange-600">{alerts?.summary.totalDrops || 0}</div>
+                </div>
+              </div>
+            </div>
 
-            <Card className="border-green-200 bg-green-50">
-              <CardContent className="pt-4">
-                <div className="flex items-center gap-3">
-                  <div className="bg-green-100 p-2 rounded-lg">
-                    <ArrowTrendingUpIcon className="h-5 w-5 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Improvements</p>
-                    <p className="text-xl font-bold text-green-600">{alerts?.summary.totalImprovements || 0}</p>
-                  </div>
+            <div className="stat-card border-green-200 bg-green-50">
+              <div className="flex items-center gap-3">
+                <div className="bg-green-100 p-2 rounded-lg">
+                  <ArrowTrendingUpIcon className="h-5 w-5 text-green-600" />
                 </div>
-              </CardContent>
-            </Card>
+                <div>
+                  <div className="stat-label">Improvements</div>
+                  <div className="stat-value text-green-600">{alerts?.summary.totalImprovements || 0}</div>
+                </div>
+              </div>
+            </div>
 
-            <Card className={alerts?.summary.significantImprovements ? 'border-emerald-200 bg-emerald-50' : ''}>
-              <CardContent className="pt-4">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${alerts?.summary.significantImprovements ? 'bg-emerald-100' : 'bg-muted'}`}>
-                    <CheckCircleIcon className={`h-5 w-5 ${alerts?.summary.significantImprovements ? 'text-emerald-600' : 'text-muted-foreground'}`} />
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Big Gains (10+)</p>
-                    <p className={`text-xl font-bold ${alerts?.summary.significantImprovements ? 'text-emerald-600' : 'text-muted-foreground'}`}>
-                      {alerts?.summary.significantImprovements || 0}
-                    </p>
+            <div className={`stat-card ${alerts?.summary.significantImprovements ? 'border-emerald-200 bg-emerald-50' : ''}`}>
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${alerts?.summary.significantImprovements ? 'bg-emerald-100' : 'bg-muted'}`}>
+                  <CheckCircleIcon className={`h-5 w-5 ${alerts?.summary.significantImprovements ? 'text-emerald-600' : 'text-muted-foreground'}`} />
+                </div>
+                <div>
+                  <div className="stat-label">Big Gains (10+)</div>
+                  <div className={`stat-value ${alerts?.summary.significantImprovements ? 'text-emerald-600' : 'text-muted-foreground'}`}>
+                    {alerts?.summary.significantImprovements || 0}
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
 
           {/* Quick Stats */}
           <div className="grid grid-cols-3 gap-4 mb-6">
-            <Link href="/brands">
-              <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                <CardContent className="pt-4">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-primary/10 p-2 rounded-lg">
-                      <BuildingOfficeIcon className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Brands</p>
-                      <p className="text-xl font-bold">{alerts?.summary.totalBrands || 0}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+            <Link href="/brands" className="stat-card hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-3">
+                <div className="bg-primary/10 p-2 rounded-lg">
+                  <BuildingOfficeIcon className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <div className="stat-label">Brands</div>
+                  <div className="stat-value">{alerts?.summary.totalBrands || 0}</div>
+                </div>
+              </div>
             </Link>
 
-            <Link href="/app-rankings">
-              <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                <CardContent className="pt-4">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-blue-100 p-2 rounded-lg">
-                      <DevicePhoneMobileIcon className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Apps Tracked</p>
-                      <p className="text-xl font-bold">{alerts?.summary.totalApps || 0}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+            <Link href="/app-rankings" className="stat-card hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-3">
+                <div className="bg-blue-100 p-2 rounded-lg">
+                  <DevicePhoneMobileIcon className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <div className="stat-label">Apps Tracked</div>
+                  <div className="stat-value">{alerts?.summary.totalApps || 0}</div>
+                </div>
+              </div>
             </Link>
 
-            <Link href="/keywords">
-              <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                <CardContent className="pt-4">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-purple-100 p-2 rounded-lg">
-                      <DocumentTextIcon className="h-5 w-5 text-purple-600" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Keywords</p>
-                      <p className="text-xl font-bold">{alerts?.summary.totalKeywords || 0}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+            <Link href="/keywords" className="stat-card hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-3">
+                <div className="bg-purple-100 p-2 rounded-lg">
+                  <DocumentTextIcon className="h-5 w-5 text-purple-600" />
+                </div>
+                <div>
+                  <div className="stat-label">Keywords</div>
+                  <div className="stat-value">{alerts?.summary.totalKeywords || 0}</div>
+                </div>
+              </div>
             </Link>
           </div>
 
           {/* Ranking Changes */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="overflow-hidden">
-              <CardHeader className="bg-destructive/10 border-b border-destructive/20 py-3">
-                <CardTitle className="text-destructive flex items-center gap-2 text-base">
-                  <ArrowTrendingDownIcon className="h-5 w-5" />
+            {/* Top Drops */}
+            <div className="card overflow-hidden">
+              <div className="px-4 py-3 bg-destructive/10 border-b border-destructive/20">
+                <h3 className="text-sm font-semibold text-destructive flex items-center gap-2">
+                  <ArrowTrendingDownIcon className="h-4 w-4" />
                   Biggest Drops (24h)
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 divide-y">
+                </h3>
+              </div>
+              <div className="divide-y divide-border max-h-96 overflow-y-auto scrollbar-thin">
                 {alerts?.topDrops && alerts.topDrops.length > 0 ? (
                   alerts.topDrops.slice(0, 8).map((change, idx) => (
-                    <div key={idx} className="px-4 py-3 hover:bg-muted/50">
+                    <div key={idx} className="px-4 py-3 hover:bg-muted/50 transition-colors">
                       <div className="flex items-center justify-between">
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{change.keyword}</p>
+                          <p className="text-sm font-medium text-foreground truncate">{change.keyword}</p>
                           <p className="text-xs text-muted-foreground">
                             {change.appName} - {getCountryFlag(change.country)} {change.country}
                           </p>
@@ -241,33 +221,35 @@ export default function RoleBasedDashboard() {
                             <span className="text-xs text-muted-foreground mx-1">→</span>
                             <span className="text-sm font-medium">#{change.currentRank}</span>
                           </div>
-                          <Badge variant="destructive">{change.change}</Badge>
+                          <span className="badge-destructive font-bold">{change.change}</span>
                         </div>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className="px-4 py-8 text-center text-muted-foreground text-sm">
-                    No ranking drops in the last 24h
+                  <div className="empty-state py-8">
+                    <CheckCircleIcon className="empty-state-icon h-8 w-8" />
+                    <p className="text-sm text-muted-foreground">No ranking drops in the last 24h</p>
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
-            <Card className="overflow-hidden">
-              <CardHeader className="bg-green-50 border-b border-green-100 py-3">
-                <CardTitle className="text-green-700 flex items-center gap-2 text-base">
-                  <ArrowTrendingUpIcon className="h-5 w-5" />
+            {/* Top Improvements */}
+            <div className="card overflow-hidden">
+              <div className="px-4 py-3 bg-green-50 border-b border-green-100">
+                <h3 className="text-sm font-semibold text-green-700 flex items-center gap-2">
+                  <ArrowTrendingUpIcon className="h-4 w-4" />
                   Biggest Gains (24h)
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 divide-y">
+                </h3>
+              </div>
+              <div className="divide-y divide-border max-h-96 overflow-y-auto scrollbar-thin">
                 {alerts?.topImprovements && alerts.topImprovements.length > 0 ? (
                   alerts.topImprovements.slice(0, 8).map((change, idx) => (
-                    <div key={idx} className="px-4 py-3 hover:bg-muted/50">
+                    <div key={idx} className="px-4 py-3 hover:bg-muted/50 transition-colors">
                       <div className="flex items-center justify-between">
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{change.keyword}</p>
+                          <p className="text-sm font-medium text-foreground truncate">{change.keyword}</p>
                           <p className="text-xs text-muted-foreground">
                             {change.appName} - {getCountryFlag(change.country)} {change.country}
                           </p>
@@ -278,53 +260,38 @@ export default function RoleBasedDashboard() {
                             <span className="text-xs text-muted-foreground mx-1">→</span>
                             <span className="text-sm font-medium">#{change.currentRank}</span>
                           </div>
-                          <Badge className="bg-green-100 text-green-700">+{change.change}</Badge>
+                          <span className="badge-success font-bold">+{change.change}</span>
                         </div>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className="px-4 py-8 text-center text-muted-foreground text-sm">
-                    No ranking improvements in the last 24h
+                  <div className="empty-state py-8">
+                    <ArrowTrendingUpIcon className="empty-state-icon h-8 w-8" />
+                    <p className="text-sm text-muted-foreground">No ranking improvements in the last 24h</p>
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
 
           {/* Quick Actions */}
           <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Link href="/app-rankings">
-              <Card className="hover:shadow-md transition-shadow text-center cursor-pointer">
-                <CardContent className="pt-6">
-                  <ChartBarIcon className="h-8 w-8 text-primary mx-auto mb-2" />
-                  <p className="text-sm font-medium">App Rankings</p>
-                </CardContent>
-              </Card>
+            <Link href="/app-rankings" className="card p-6 text-center hover:shadow-md transition-shadow">
+              <ChartBarIcon className="h-8 w-8 text-primary mx-auto mb-2" />
+              <p className="text-sm font-medium">App Rankings</p>
             </Link>
-            <Link href="/keywords">
-              <Card className="hover:shadow-md transition-shadow text-center cursor-pointer">
-                <CardContent className="pt-6">
-                  <DocumentTextIcon className="h-8 w-8 text-green-600 mx-auto mb-2" />
-                  <p className="text-sm font-medium">Keywords</p>
-                </CardContent>
-              </Card>
+            <Link href="/keywords" className="card p-6 text-center hover:shadow-md transition-shadow">
+              <DocumentTextIcon className="h-8 w-8 text-green-600 mx-auto mb-2" />
+              <p className="text-sm font-medium">Keywords</p>
             </Link>
-            <Link href="/backlinks">
-              <Card className="hover:shadow-md transition-shadow text-center cursor-pointer">
-                <CardContent className="pt-6">
-                  <LinkIcon className="h-8 w-8 text-yellow-600 mx-auto mb-2" />
-                  <p className="text-sm font-medium">Backlinks</p>
-                </CardContent>
-              </Card>
+            <Link href="/backlinks" className="card p-6 text-center hover:shadow-md transition-shadow">
+              <LinkIcon className="h-8 w-8 text-amber-600 mx-auto mb-2" />
+              <p className="text-sm font-medium">Backlinks</p>
             </Link>
-            <Link href="/brands">
-              <Card className="hover:shadow-md transition-shadow text-center cursor-pointer">
-                <CardContent className="pt-6">
-                  <BuildingOfficeIcon className="h-8 w-8 text-purple-600 mx-auto mb-2" />
-                  <p className="text-sm font-medium">All Brands</p>
-                </CardContent>
-              </Card>
+            <Link href="/brands" className="card p-6 text-center hover:shadow-md transition-shadow">
+              <BuildingOfficeIcon className="h-8 w-8 text-purple-600 mx-auto mb-2" />
+              <p className="text-sm font-medium">All Brands</p>
             </Link>
           </div>
         </div>
@@ -334,18 +301,22 @@ export default function RoleBasedDashboard() {
 
   if (currentUser?.role === 'WRITER') {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="text-center">
-          <p className="text-muted-foreground">Redirecting to articles...</p>
+      <div className="page-container">
+        <div className="page-content">
+          <div className="flex items-center justify-center py-12">
+            <p className="text-muted-foreground">Redirecting to articles...</p>
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <div className="text-center">
-        <p className="text-muted-foreground">Please log in to view the dashboard</p>
+    <div className="page-container">
+      <div className="page-content">
+        <div className="flex items-center justify-center py-12">
+          <p className="text-muted-foreground">Please log in to view the dashboard</p>
+        </div>
       </div>
     </div>
   )

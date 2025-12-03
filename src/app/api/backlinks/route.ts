@@ -5,12 +5,10 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const brandId = searchParams.get('brandId')
-    const status = searchParams.get('status')
 
     const backlinks = await prisma.backlink.findMany({
       where: {
         brandId: brandId || undefined,
-        status: status as any || undefined,
       },
       include: {
         brand: {
@@ -19,9 +17,10 @@ export async function GET(request: NextRequest) {
           },
         },
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: [
+        { dr: 'desc' },
+        { createdAt: 'desc' }
+      ],
     })
 
     return NextResponse.json(backlinks)
@@ -41,16 +40,11 @@ export async function POST(request: NextRequest) {
       rootDomain,
       referringPageUrl,
       dr,
-      traffic,
       targetUrl,
       anchor,
-      dofollow,
-      status,
+      linkType,
       price,
-      builtOn,
-      supplierEmail,
-      liveFor,
-      invoice,
+      remarks,
       brandId,
     } = body
 
@@ -66,16 +60,11 @@ export async function POST(request: NextRequest) {
         rootDomain,
         referringPageUrl,
         dr: dr ? parseInt(dr) : null,
-        traffic: traffic ? parseInt(traffic) : null,
         targetUrl,
-        anchor,
-        dofollow: dofollow !== false,
-        status: status || 'PENDING',
+        anchor: anchor || null,
+        linkType: linkType || null,
         price: price ? parseFloat(price) : null,
-        builtOn: builtOn ? new Date(builtOn) : null,
-        supplierEmail,
-        liveFor: liveFor ? parseInt(liveFor) : null,
-        invoice,
+        remarks: remarks || null,
         brandId,
       },
     })
@@ -105,12 +94,14 @@ export async function PUT(request: NextRequest) {
     const backlink = await prisma.backlink.update({
       where: { id },
       data: {
-        ...updateData,
-        builtOn: updateData.builtOn ? new Date(updateData.builtOn) : undefined,
-        price: updateData.price ? parseFloat(updateData.price) : undefined,
-        dr: updateData.dr ? parseInt(updateData.dr) : undefined,
-        traffic: updateData.traffic ? parseInt(updateData.traffic) : undefined,
-        liveFor: updateData.liveFor ? parseInt(updateData.liveFor) : undefined,
+        rootDomain: updateData.rootDomain,
+        referringPageUrl: updateData.referringPageUrl,
+        targetUrl: updateData.targetUrl,
+        anchor: updateData.anchor || null,
+        linkType: updateData.linkType || null,
+        dr: updateData.dr ? parseInt(updateData.dr) : null,
+        price: updateData.price ? parseFloat(updateData.price) : null,
+        remarks: updateData.remarks || null,
       },
     })
 
