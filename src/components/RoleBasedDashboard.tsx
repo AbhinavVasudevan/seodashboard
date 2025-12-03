@@ -16,6 +16,9 @@ import {
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { getCountryFlag } from '@/lib/utils'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 
 interface RankingChange {
   appName: string
@@ -76,236 +79,252 @@ export default function RoleBasedDashboard() {
 
   if (status === 'loading' || isLoading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-          <p className="mt-2 text-gray-600">Loading dashboard...</p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-24 w-full" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Skeleton className="h-96 w-full" />
+          <Skeleton className="h-96 w-full" />
         </div>
       </div>
     )
   }
 
-  if (!session) {
-    return null
-  }
+  if (!session) return null
 
   const currentUser = session.user
 
-  // Admin & SEO Dashboard (shared view)
   if (currentUser?.role === 'ADMIN' || currentUser?.role === 'SEO') {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* Alert Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            {/* Significant Drops Alert */}
-            <div className={`rounded-lg p-4 ${alerts?.summary.significantDrops ? 'bg-red-50 border border-red-200' : 'bg-gray-50 border border-gray-200'}`}>
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${alerts?.summary.significantDrops ? 'bg-red-100' : 'bg-gray-100'}`}>
-                  <ExclamationTriangleIcon className={`h-5 w-5 ${alerts?.summary.significantDrops ? 'text-red-600' : 'text-gray-400'}`} />
+            <Card className={alerts?.summary.significantDrops ? 'border-destructive/50 bg-destructive/5' : ''}>
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${alerts?.summary.significantDrops ? 'bg-destructive/10' : 'bg-muted'}`}>
+                    <ExclamationTriangleIcon className={`h-5 w-5 ${alerts?.summary.significantDrops ? 'text-destructive' : 'text-muted-foreground'}`} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Big Drops (10+)</p>
+                    <p className={`text-xl font-bold ${alerts?.summary.significantDrops ? 'text-destructive' : 'text-muted-foreground'}`}>
+                      {alerts?.summary.significantDrops || 0}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-500">Big Drops (10+)</p>
-                  <p className={`text-xl font-bold ${alerts?.summary.significantDrops ? 'text-red-600' : 'text-gray-400'}`}>
-                    {alerts?.summary.significantDrops || 0}
-                  </p>
-                </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
-            {/* Total Drops */}
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-              <div className="flex items-center gap-3">
-                <div className="bg-orange-100 p-2 rounded-lg">
-                  <ArrowTrendingDownIcon className="h-5 w-5 text-orange-600" />
+            <Card className="border-orange-200 bg-orange-50">
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-3">
+                  <div className="bg-orange-100 p-2 rounded-lg">
+                    <ArrowTrendingDownIcon className="h-5 w-5 text-orange-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Total Drops</p>
+                    <p className="text-xl font-bold text-orange-600">{alerts?.summary.totalDrops || 0}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-500">Total Drops</p>
-                  <p className="text-xl font-bold text-orange-600">{alerts?.summary.totalDrops || 0}</p>
-                </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
-            {/* Total Improvements */}
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="flex items-center gap-3">
-                <div className="bg-green-100 p-2 rounded-lg">
-                  <ArrowTrendingUpIcon className="h-5 w-5 text-green-600" />
+            <Card className="border-green-200 bg-green-50">
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-3">
+                  <div className="bg-green-100 p-2 rounded-lg">
+                    <ArrowTrendingUpIcon className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Improvements</p>
+                    <p className="text-xl font-bold text-green-600">{alerts?.summary.totalImprovements || 0}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-500">Improvements</p>
-                  <p className="text-xl font-bold text-green-600">{alerts?.summary.totalImprovements || 0}</p>
-                </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
-            {/* Significant Improvements */}
-            <div className={`rounded-lg p-4 ${alerts?.summary.significantImprovements ? 'bg-emerald-50 border border-emerald-200' : 'bg-gray-50 border border-gray-200'}`}>
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${alerts?.summary.significantImprovements ? 'bg-emerald-100' : 'bg-gray-100'}`}>
-                  <CheckCircleIcon className={`h-5 w-5 ${alerts?.summary.significantImprovements ? 'text-emerald-600' : 'text-gray-400'}`} />
+            <Card className={alerts?.summary.significantImprovements ? 'border-emerald-200 bg-emerald-50' : ''}>
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${alerts?.summary.significantImprovements ? 'bg-emerald-100' : 'bg-muted'}`}>
+                    <CheckCircleIcon className={`h-5 w-5 ${alerts?.summary.significantImprovements ? 'text-emerald-600' : 'text-muted-foreground'}`} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Big Gains (10+)</p>
+                    <p className={`text-xl font-bold ${alerts?.summary.significantImprovements ? 'text-emerald-600' : 'text-muted-foreground'}`}>
+                      {alerts?.summary.significantImprovements || 0}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-500">Big Gains (10+)</p>
-                  <p className={`text-xl font-bold ${alerts?.summary.significantImprovements ? 'text-emerald-600' : 'text-gray-400'}`}>
-                    {alerts?.summary.significantImprovements || 0}
-                  </p>
-                </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           </div>
 
-          {/* Quick Stats Row */}
-          <div className="grid grid-cols-3 md:grid-cols-3 gap-4 mb-6">
-            <Link href="/brands" className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-              <div className="flex items-center gap-3">
-                <div className="bg-primary-100 p-2 rounded-lg">
-                  <BuildingOfficeIcon className="h-5 w-5 text-primary-600" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Brands</p>
-                  <p className="text-xl font-bold text-gray-900">{alerts?.summary.totalBrands || 0}</p>
-                </div>
-              </div>
+          {/* Quick Stats */}
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <Link href="/brands">
+              <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                <CardContent className="pt-4">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-primary/10 p-2 rounded-lg">
+                      <BuildingOfficeIcon className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Brands</p>
+                      <p className="text-xl font-bold">{alerts?.summary.totalBrands || 0}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </Link>
 
-            <Link href="/app-rankings" className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-              <div className="flex items-center gap-3">
-                <div className="bg-blue-100 p-2 rounded-lg">
-                  <DevicePhoneMobileIcon className="h-5 w-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Apps Tracked</p>
-                  <p className="text-xl font-bold text-gray-900">{alerts?.summary.totalApps || 0}</p>
-                </div>
-              </div>
+            <Link href="/app-rankings">
+              <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                <CardContent className="pt-4">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-blue-100 p-2 rounded-lg">
+                      <DevicePhoneMobileIcon className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Apps Tracked</p>
+                      <p className="text-xl font-bold">{alerts?.summary.totalApps || 0}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </Link>
 
-            <Link href="/keywords" className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-              <div className="flex items-center gap-3">
-                <div className="bg-purple-100 p-2 rounded-lg">
-                  <DocumentTextIcon className="h-5 w-5 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Keywords</p>
-                  <p className="text-xl font-bold text-gray-900">{alerts?.summary.totalKeywords || 0}</p>
-                </div>
-              </div>
+            <Link href="/keywords">
+              <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                <CardContent className="pt-4">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-purple-100 p-2 rounded-lg">
+                      <DocumentTextIcon className="h-5 w-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Keywords</p>
+                      <p className="text-xl font-bold">{alerts?.summary.totalKeywords || 0}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </Link>
           </div>
 
-          {/* Ranking Changes Tables */}
+          {/* Ranking Changes */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Top Drops */}
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-              <div className="bg-red-50 px-4 py-3 border-b border-red-100">
-                <div className="flex items-center gap-2">
-                  <ArrowTrendingDownIcon className="h-5 w-5 text-red-600" />
-                  <h3 className="font-semibold text-red-900">Biggest Drops (24h)</h3>
-                </div>
-              </div>
-              <div className="divide-y divide-gray-100">
+            <Card className="overflow-hidden">
+              <CardHeader className="bg-destructive/10 border-b border-destructive/20 py-3">
+                <CardTitle className="text-destructive flex items-center gap-2 text-base">
+                  <ArrowTrendingDownIcon className="h-5 w-5" />
+                  Biggest Drops (24h)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 divide-y">
                 {alerts?.topDrops && alerts.topDrops.length > 0 ? (
                   alerts.topDrops.slice(0, 8).map((change, idx) => (
-                    <div key={idx} className="px-4 py-3 hover:bg-gray-50">
+                    <div key={idx} className="px-4 py-3 hover:bg-muted/50">
                       <div className="flex items-center justify-between">
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">{change.keyword}</p>
-                          <p className="text-xs text-gray-500">
-                            {change.appName} • {getCountryFlag(change.country)} {change.country}
+                          <p className="text-sm font-medium truncate">{change.keyword}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {change.appName} - {getCountryFlag(change.country)} {change.country}
                           </p>
                         </div>
                         <div className="flex items-center gap-3 ml-4">
                           <div className="text-right">
-                            <span className="text-xs text-gray-400">#{change.previousRank}</span>
-                            <span className="text-xs text-gray-400 mx-1">→</span>
-                            <span className="text-sm font-medium text-gray-900">#{change.currentRank}</span>
+                            <span className="text-xs text-muted-foreground">#{change.previousRank}</span>
+                            <span className="text-xs text-muted-foreground mx-1">→</span>
+                            <span className="text-sm font-medium">#{change.currentRank}</span>
                           </div>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-700">
-                            {change.change}
-                          </span>
+                          <Badge variant="destructive">{change.change}</Badge>
                         </div>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className="px-4 py-8 text-center text-gray-500 text-sm">
+                  <div className="px-4 py-8 text-center text-muted-foreground text-sm">
                     No ranking drops in the last 24h
                   </div>
                 )}
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
-            {/* Top Improvements */}
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-              <div className="bg-green-50 px-4 py-3 border-b border-green-100">
-                <div className="flex items-center gap-2">
-                  <ArrowTrendingUpIcon className="h-5 w-5 text-green-600" />
-                  <h3 className="font-semibold text-green-900">Biggest Gains (24h)</h3>
-                </div>
-              </div>
-              <div className="divide-y divide-gray-100">
+            <Card className="overflow-hidden">
+              <CardHeader className="bg-green-50 border-b border-green-100 py-3">
+                <CardTitle className="text-green-700 flex items-center gap-2 text-base">
+                  <ArrowTrendingUpIcon className="h-5 w-5" />
+                  Biggest Gains (24h)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 divide-y">
                 {alerts?.topImprovements && alerts.topImprovements.length > 0 ? (
                   alerts.topImprovements.slice(0, 8).map((change, idx) => (
-                    <div key={idx} className="px-4 py-3 hover:bg-gray-50">
+                    <div key={idx} className="px-4 py-3 hover:bg-muted/50">
                       <div className="flex items-center justify-between">
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">{change.keyword}</p>
-                          <p className="text-xs text-gray-500">
-                            {change.appName} • {getCountryFlag(change.country)} {change.country}
+                          <p className="text-sm font-medium truncate">{change.keyword}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {change.appName} - {getCountryFlag(change.country)} {change.country}
                           </p>
                         </div>
                         <div className="flex items-center gap-3 ml-4">
                           <div className="text-right">
-                            <span className="text-xs text-gray-400">#{change.previousRank}</span>
-                            <span className="text-xs text-gray-400 mx-1">→</span>
-                            <span className="text-sm font-medium text-gray-900">#{change.currentRank}</span>
+                            <span className="text-xs text-muted-foreground">#{change.previousRank}</span>
+                            <span className="text-xs text-muted-foreground mx-1">→</span>
+                            <span className="text-sm font-medium">#{change.currentRank}</span>
                           </div>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-green-100 text-green-700">
-                            +{change.change}
-                          </span>
+                          <Badge className="bg-green-100 text-green-700">+{change.change}</Badge>
                         </div>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className="px-4 py-8 text-center text-gray-500 text-sm">
+                  <div className="px-4 py-8 text-center text-muted-foreground text-sm">
                     No ranking improvements in the last 24h
                   </div>
                 )}
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Quick Actions */}
           <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Link
-              href="/app-rankings"
-              className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow text-center"
-            >
-              <ChartBarIcon className="h-8 w-8 text-primary-600 mx-auto mb-2" />
-              <p className="text-sm font-medium text-gray-900">App Rankings</p>
+            <Link href="/app-rankings">
+              <Card className="hover:shadow-md transition-shadow text-center cursor-pointer">
+                <CardContent className="pt-6">
+                  <ChartBarIcon className="h-8 w-8 text-primary mx-auto mb-2" />
+                  <p className="text-sm font-medium">App Rankings</p>
+                </CardContent>
+              </Card>
             </Link>
-            <Link
-              href="/keywords"
-              className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow text-center"
-            >
-              <DocumentTextIcon className="h-8 w-8 text-green-600 mx-auto mb-2" />
-              <p className="text-sm font-medium text-gray-900">Keywords</p>
+            <Link href="/keywords">
+              <Card className="hover:shadow-md transition-shadow text-center cursor-pointer">
+                <CardContent className="pt-6">
+                  <DocumentTextIcon className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                  <p className="text-sm font-medium">Keywords</p>
+                </CardContent>
+              </Card>
             </Link>
-            <Link
-              href="/backlinks"
-              className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow text-center"
-            >
-              <LinkIcon className="h-8 w-8 text-yellow-600 mx-auto mb-2" />
-              <p className="text-sm font-medium text-gray-900">Backlinks</p>
+            <Link href="/backlinks">
+              <Card className="hover:shadow-md transition-shadow text-center cursor-pointer">
+                <CardContent className="pt-6">
+                  <LinkIcon className="h-8 w-8 text-yellow-600 mx-auto mb-2" />
+                  <p className="text-sm font-medium">Backlinks</p>
+                </CardContent>
+              </Card>
             </Link>
-            <Link
-              href="/brands"
-              className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow text-center"
-            >
-              <BuildingOfficeIcon className="h-8 w-8 text-purple-600 mx-auto mb-2" />
-              <p className="text-sm font-medium text-gray-900">All Brands</p>
+            <Link href="/brands">
+              <Card className="hover:shadow-md transition-shadow text-center cursor-pointer">
+                <CardContent className="pt-6">
+                  <BuildingOfficeIcon className="h-8 w-8 text-purple-600 mx-auto mb-2" />
+                  <p className="text-sm font-medium">All Brands</p>
+                </CardContent>
+              </Card>
             </Link>
           </div>
         </div>
@@ -313,12 +332,11 @@ export default function RoleBasedDashboard() {
     )
   }
 
-  // Writer Dashboard
   if (currentUser?.role === 'WRITER') {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center">
-          <p className="text-gray-600">Redirecting to articles...</p>
+          <p className="text-muted-foreground">Redirecting to articles...</p>
         </div>
       </div>
     )
@@ -327,7 +345,7 @@ export default function RoleBasedDashboard() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="text-center">
-        <p className="text-gray-600">Please log in to view the dashboard</p>
+        <p className="text-muted-foreground">Please log in to view the dashboard</p>
       </div>
     </div>
   )

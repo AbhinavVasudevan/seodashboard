@@ -2,6 +2,13 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { toast } from 'sonner'
 
 export default function BrandForm() {
   const [name, setName] = useState('')
@@ -19,9 +26,7 @@ export default function BrandForm() {
     try {
       const response = await fetch('/api/brands', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name,
           domain: domain || undefined,
@@ -35,6 +40,7 @@ export default function BrandForm() {
       }
 
       await response.json()
+      toast.success('Brand created successfully')
       router.push('/')
       router.refresh()
     } catch (err) {
@@ -46,80 +52,64 @@ export default function BrandForm() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="card">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Create New Brand</h2>
-        
-        {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-            {error}
-          </div>
-        )}
+      <Card>
+        <CardHeader>
+          <CardTitle>Create New Brand</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {error && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-              Brand Name *
-            </label>
-            <input
-              type="text"
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="input-field"
-              placeholder="Enter brand name"
-              required
-            />
-          </div>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="name">Brand Name *</Label>
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Enter brand name"
+                required
+              />
+            </div>
 
-          <div>
-            <label htmlFor="domain" className="block text-sm font-medium text-gray-700 mb-2">
-              Domain
-            </label>
-            <input
-              type="text"
-              id="domain"
-              value={domain}
-              onChange={(e) => setDomain(e.target.value)}
-              className="input-field"
-              placeholder="e.g. example.com"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Enter the main domain for this brand (without https://)
-            </p>
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="domain">Domain</Label>
+              <Input
+                id="domain"
+                value={domain}
+                onChange={(e) => setDomain(e.target.value)}
+                placeholder="e.g. example.com"
+              />
+              <p className="text-xs text-muted-foreground">
+                Enter the main domain for this brand (without https://)
+              </p>
+            </div>
 
-          <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-              Description
-            </label>
-            <textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="input-field"
-              rows={4}
-              placeholder="Enter brand description (optional)"
-            />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={4}
+                placeholder="Enter brand description (optional)"
+              />
+            </div>
 
-          <div className="flex gap-4">
-            <button
-              type="submit"
-              disabled={isLoading || !name}
-              className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? 'Creating...' : 'Create Brand'}
-            </button>
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="btn-secondary"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      </div>
+            <div className="flex gap-4">
+              <Button type="submit" disabled={isLoading || !name}>
+                {isLoading ? 'Creating...' : 'Create Brand'}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => router.back()}>
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   )
 }

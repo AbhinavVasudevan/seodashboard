@@ -2,12 +2,46 @@
 
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { toast } from 'sonner'
 
 interface AppKeywordFormProps {
   appId: string
   appName?: string
   brandName?: string
 }
+
+const countries = [
+  { code: 'US', name: 'United States' },
+  { code: 'GB', name: 'United Kingdom' },
+  { code: 'CA', name: 'Canada' },
+  { code: 'AU', name: 'Australia' },
+  { code: 'IE', name: 'Ireland' },
+  { code: 'DE', name: 'Germany' },
+  { code: 'FR', name: 'France' },
+  { code: 'IT', name: 'Italy' },
+  { code: 'ES', name: 'Spain' },
+  { code: 'NL', name: 'Netherlands' },
+  { code: 'SE', name: 'Sweden' },
+  { code: 'NO', name: 'Norway' },
+  { code: 'FI', name: 'Finland' },
+  { code: 'DK', name: 'Denmark' },
+  { code: 'IN', name: 'India' },
+  { code: 'JP', name: 'Japan' },
+  { code: 'SG', name: 'Singapore' },
+  { code: 'MY', name: 'Malaysia' },
+]
 
 export default function AppKeywordForm({ appId, appName, brandName }: AppKeywordFormProps) {
   const [keywords, setKeywords] = useState('')
@@ -24,7 +58,6 @@ export default function AppKeywordForm({ appId, appName, brandName }: AppKeyword
     setError('')
 
     try {
-      // Split keywords by line and filter out empty lines
       const keywordList = keywords
         .split('\n')
         .map(k => k.trim())
@@ -34,13 +67,10 @@ export default function AppKeywordForm({ appId, appName, brandName }: AppKeyword
         throw new Error('Please enter at least one keyword')
       }
 
-      // Create keywords one by one
       const promises = keywordList.map(keyword =>
         fetch('/api/keywords', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             keyword,
             country: country.toUpperCase(),
@@ -50,13 +80,12 @@ export default function AppKeywordForm({ appId, appName, brandName }: AppKeyword
       )
 
       const responses = await Promise.all(promises)
-      
-      // Check if all responses were successful
       const hasError = responses.some(response => !response.ok)
       if (hasError) {
         throw new Error('Some keywords failed to be created')
       }
 
+      toast.success(`${keywordList.length} keywords uploaded successfully`)
       router.push(`/brands/${brandId}/apps/${appId}`)
       router.refresh()
     } catch (err) {
@@ -68,95 +97,69 @@ export default function AppKeywordForm({ appId, appName, brandName }: AppKeyword
 
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="card">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Upload Daily Keywords</h2>
-        
-        {appName && brandName && (
-          <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-            <p className="text-sm text-gray-600">
-              Adding keywords for: <span className="font-semibold text-gray-900">{appName}</span>
-            </p>
-            <p className="text-sm text-gray-600">
-              Brand: <span className="font-semibold text-gray-900">{brandName}</span>
-            </p>
-          </div>
-        )}
+      <Card>
+        <CardHeader>
+          <CardTitle>Upload Daily Keywords</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {appName && brandName && (
+            <div className="mb-6 p-4 bg-muted rounded-lg">
+              <p className="text-sm text-muted-foreground">
+                Adding keywords for: <span className="font-semibold text-foreground">{appName}</span>
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Brand: <span className="font-semibold text-foreground">{brandName}</span>
+              </p>
+            </div>
+          )}
 
-        {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-            {error}
-          </div>
-        )}
+          {error && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label htmlFor="keywords" className="block text-sm font-medium text-gray-700 mb-2">
-              Daily Keyword List *
-            </label>
-            <textarea
-              id="keywords"
-              value={keywords}
-              onChange={(e) => setKeywords(e.target.value)}
-              className="input-field"
-              rows={12}
-              placeholder="Enter keywords, one per line"
-              required
-            />
-            <p className="text-sm text-gray-500 mt-1">
-              Enter one keyword per line. This is your daily keyword list for tracking.
-            </p>
-          </div>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="keywords">Daily Keyword List *</Label>
+              <Textarea
+                id="keywords"
+                value={keywords}
+                onChange={(e) => setKeywords(e.target.value)}
+                rows={12}
+                placeholder="Enter keywords, one per line"
+                required
+              />
+              <p className="text-sm text-muted-foreground">
+                Enter one keyword per line.
+              </p>
+            </div>
 
-          <div>
-            <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-2">
-              Country *
-            </label>
-            <select
-              id="country"
-              value={country}
-              onChange={(e) => setCountry(e.target.value)}
-              className="input-field"
-              required
-            >
-              <option value="US">United States</option>
-              <option value="GB">United Kingdom</option>
-              <option value="CA">Canada</option>
-              <option value="AU">Australia</option>
-              <option value="IE">Ireland</option>
-              <option value="DE">Germany</option>
-              <option value="FR">France</option>
-              <option value="IT">Italy</option>
-              <option value="ES">Spain</option>
-              <option value="NL">Netherlands</option>
-              <option value="SE">Sweden</option>
-              <option value="NO">Norway</option>
-              <option value="FI">Finland</option>
-              <option value="DK">Denmark</option>
-              <option value="IN">India</option>
-              <option value="JP">Japan</option>
-              <option value="SG">Singapore</option>
-              <option value="MY">Malaysia</option>
-            </select>
-          </div>
+            <div className="space-y-2">
+              <Label>Country *</Label>
+              <Select value={country} onValueChange={setCountry}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select country" />
+                </SelectTrigger>
+                <SelectContent>
+                  {countries.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          <div className="flex gap-4">
-            <button
-              type="submit"
-              disabled={isLoading || !keywords.trim()}
-              className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? 'Uploading...' : 'Upload Daily Keywords'}
-            </button>
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="btn-secondary"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      </div>
+            <div className="flex gap-4">
+              <Button type="submit" disabled={isLoading || !keywords.trim()}>
+                {isLoading ? 'Uploading...' : 'Upload Daily Keywords'}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => router.back()}>
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   )
 }

@@ -2,11 +2,45 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { toast } from 'sonner'
 
 interface KeywordFormProps {
   brandId: string
   brandName?: string
 }
+
+const countries = [
+  { code: 'US', name: 'United States' },
+  { code: 'GB', name: 'United Kingdom' },
+  { code: 'CA', name: 'Canada' },
+  { code: 'AU', name: 'Australia' },
+  { code: 'IE', name: 'Ireland' },
+  { code: 'DE', name: 'Germany' },
+  { code: 'FR', name: 'France' },
+  { code: 'IT', name: 'Italy' },
+  { code: 'ES', name: 'Spain' },
+  { code: 'NL', name: 'Netherlands' },
+  { code: 'SE', name: 'Sweden' },
+  { code: 'NO', name: 'Norway' },
+  { code: 'FI', name: 'Finland' },
+  { code: 'DK', name: 'Denmark' },
+  { code: 'IN', name: 'India' },
+  { code: 'JP', name: 'Japan' },
+  { code: 'SG', name: 'Singapore' },
+  { code: 'MY', name: 'Malaysia' },
+]
 
 export default function KeywordForm({ brandId, brandName }: KeywordFormProps) {
   const [keywords, setKeywords] = useState('')
@@ -21,7 +55,6 @@ export default function KeywordForm({ brandId, brandName }: KeywordFormProps) {
     setError('')
 
     try {
-      // Split keywords by line and filter out empty lines
       const keywordList = keywords
         .split('\n')
         .map(k => k.trim())
@@ -31,13 +64,10 @@ export default function KeywordForm({ brandId, brandName }: KeywordFormProps) {
         throw new Error('Please enter at least one keyword')
       }
 
-      // Create keywords one by one
       const promises = keywordList.map(keyword =>
         fetch('/api/keywords', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             keyword,
             country: country.toUpperCase(),
@@ -47,13 +77,12 @@ export default function KeywordForm({ brandId, brandName }: KeywordFormProps) {
       )
 
       const responses = await Promise.all(promises)
-      
-      // Check if all responses were successful
       const hasError = responses.some(response => !response.ok)
       if (hasError) {
         throw new Error('Some keywords failed to be created')
       }
 
+      toast.success(`${keywordList.length} keywords added successfully`)
       router.push(`/brands/${brandId}`)
       router.refresh()
     } catch (err) {
@@ -65,102 +94,72 @@ export default function KeywordForm({ brandId, brandName }: KeywordFormProps) {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="card">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Add Organic SEO Keywords</h2>
+      <Card>
+        <CardHeader>
+          <CardTitle>Add Organic SEO Keywords</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {brandName && (
+            <Alert className="mb-6 border-blue-200 bg-blue-50">
+              <AlertDescription>
+                <p className="font-medium text-blue-900">Organic Website SEO Tracking</p>
+                <p className="text-blue-700">
+                  Adding keywords for: <span className="font-semibold">{brandName}</span>
+                </p>
+                <p className="text-xs text-blue-600 mt-1">
+                  These keywords will track your website&apos;s organic search rankings.
+                </p>
+              </AlertDescription>
+            </Alert>
+          )}
 
-        {brandName && (
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-900 font-medium mb-1">
-              📊 Organic Website SEO Tracking
-            </p>
-            <p className="text-sm text-blue-700">
-              Adding keywords for: <span className="font-semibold">{brandName}</span>
-            </p>
-            <p className="text-xs text-blue-600 mt-1">
-              These keywords will track your website's organic search rankings on Google and other search engines.
-            </p>
-          </div>
-        )}
+          {error && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
-        {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-            {error}
-          </div>
-        )}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="keywords">Organic Keywords *</Label>
+              <Textarea
+                id="keywords"
+                value={keywords}
+                onChange={(e) => setKeywords(e.target.value)}
+                rows={8}
+                placeholder={`Example:\nbest online casino\ncasino bonuses\nonline slots\nlive casino games`}
+                required
+              />
+              <p className="text-sm text-muted-foreground">
+                Enter one keyword per line.
+              </p>
+            </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label htmlFor="keywords" className="block text-sm font-medium text-gray-700 mb-2">
-              Organic Keywords *
-            </label>
-            <textarea
-              id="keywords"
-              value={keywords}
-              onChange={(e) => setKeywords(e.target.value)}
-              className="input-field"
-              rows={8}
-              placeholder="Example:
-best online casino
-casino bonuses
-online slots
-live casino games"
-              required
-            />
-            <p className="text-sm text-gray-500 mt-1">
-              Enter one keyword per line. Add keywords you want to track for organic search rankings.
-            </p>
-          </div>
+            <div className="space-y-2">
+              <Label>Country *</Label>
+              <Select value={country} onValueChange={setCountry}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select country" />
+                </SelectTrigger>
+                <SelectContent>
+                  {countries.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          <div>
-            <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-2">
-              Country *
-            </label>
-            <select
-              id="country"
-              value={country}
-              onChange={(e) => setCountry(e.target.value)}
-              className="input-field"
-              required
-            >
-              <option value="US">United States</option>
-              <option value="GB">United Kingdom</option>
-              <option value="CA">Canada</option>
-              <option value="AU">Australia</option>
-              <option value="IE">Ireland</option>
-              <option value="DE">Germany</option>
-              <option value="FR">France</option>
-              <option value="IT">Italy</option>
-              <option value="ES">Spain</option>
-              <option value="NL">Netherlands</option>
-              <option value="SE">Sweden</option>
-              <option value="NO">Norway</option>
-              <option value="FI">Finland</option>
-              <option value="DK">Denmark</option>
-              <option value="IN">India</option>
-              <option value="JP">Japan</option>
-              <option value="SG">Singapore</option>
-              <option value="MY">Malaysia</option>
-            </select>
-          </div>
-
-          <div className="flex gap-4">
-            <button
-              type="submit"
-              disabled={isLoading || !keywords.trim()}
-              className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? 'Adding Keywords...' : 'Add Organic Keywords'}
-            </button>
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="btn-secondary"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      </div>
+            <div className="flex gap-4">
+              <Button type="submit" disabled={isLoading || !keywords.trim()}>
+                {isLoading ? 'Adding Keywords...' : 'Add Organic Keywords'}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => router.back()}>
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   )
 }

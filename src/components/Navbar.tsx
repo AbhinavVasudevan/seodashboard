@@ -11,53 +11,76 @@ import {
   UserGroupIcon,
   ArrowRightOnRectangleIcon,
   Bars3Icon,
-  XMarkIcon,
   BuildingOfficeIcon,
   ChevronDownIcon,
   PencilSquareIcon,
+  FolderIcon,
 } from '@heroicons/react/24/outline'
-import { useState, useRef, useEffect } from 'react'
+import { Button } from '@/components/ui/button'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet'
+import { Separator } from '@/components/ui/separator'
+import { useState } from 'react'
+
+interface NavItem {
+  name: string
+  href: string
+  icon: React.ComponentType<{ className?: string }>
+  children?: { name: string; href: string }[]
+}
 
 // Full navigation for Admin and SEO roles
-const fullNavigation = [
+const fullNavigation: NavItem[] = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
   { name: 'App Rankings', href: '/app-rankings', icon: ChartBarIcon },
   { name: 'Brands', href: '/brands', icon: BuildingOfficeIcon },
   { name: 'Keywords', href: '/keywords', icon: DocumentTextIcon },
   { name: 'Articles', href: '/articles', icon: PencilSquareIcon },
   { name: 'Backlinks', href: '/backlinks', icon: LinkIcon },
+  {
+    name: 'Link Directory',
+    href: '/backlink-directory',
+    icon: FolderIcon,
+    children: [
+      { name: 'Prospects', href: '/backlink-directory/prospects' },
+      { name: 'Import', href: '/backlink-directory/import' },
+      { name: 'Brand Deals', href: '/backlink-directory/deals' },
+    ]
+  },
 ]
 
 // Limited navigation for Writers - only Articles
-const writerNavigation = [
+const writerNavigation: NavItem[] = [
   { name: 'Articles', href: '/articles', icon: PencilSquareIcon },
 ]
 
-const adminNavigation = [
+const adminNavigation: NavItem[] = [
   { name: 'Manage Users', href: '/admin/users', icon: UserGroupIcon },
 ]
 
 export default function Navbar() {
   const pathname = usePathname()
   const { data: session } = useSession()
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [userMenuOpen, setUserMenuOpen] = useState(false)
-  const userMenuRef = useRef<HTMLDivElement>(null)
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   const handleLogout = async () => {
     await signOut({ callbackUrl: '/login' })
   }
-
-  // Close user menu when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
-        setUserMenuOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
 
   if (!session) return null
 
@@ -68,165 +91,220 @@ export default function Navbar() {
   const baseNavigation = isWriter ? writerNavigation : fullNavigation
   const allNavItems = isAdmin ? [...baseNavigation, ...adminNavigation] : baseNavigation
 
-  const getRoleBadgeColor = (role: string) => {
+  const getRoleBadgeVariant = (role: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (role) {
-      case 'ADMIN': return 'bg-purple-100 text-purple-700 border-purple-200'
-      case 'SEO': return 'bg-emerald-100 text-emerald-700 border-emerald-200'
-      case 'WRITER': return 'bg-blue-100 text-blue-700 border-blue-200'
-      default: return 'bg-gray-100 text-gray-700 border-gray-200'
+      case 'ADMIN': return 'default'
+      case 'SEO': return 'secondary'
+      case 'WRITER': return 'outline'
+      default: return 'secondary'
     }
   }
 
+  const NavLink = ({ item, onClick }: { item: NavItem; onClick?: () => void }) => {
+    const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))
+
+    if (item.children) {
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant={isActive ? "secondary" : "ghost"}
+              size="sm"
+              className="gap-1.5"
+            >
+              <item.icon className="h-4 w-4" />
+              {item.name}
+              <ChevronDownIcon className="h-3 w-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            {item.children.map((child) => (
+              <DropdownMenuItem key={child.href} asChild>
+                <Link href={child.href} onClick={onClick}>
+                  {child.name}
+                </Link>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )
+    }
+
+    return (
+      <Button
+        variant={isActive ? "secondary" : "ghost"}
+        size="sm"
+        asChild
+        className="gap-1.5"
+      >
+        <Link href={item.href} onClick={onClick}>
+          <item.icon className="h-4 w-4" />
+          {item.name}
+        </Link>
+      </Button>
+    )
+  }
+
   return (
-    <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+    <nav className="sticky top-0 z-50 border-b bg-card">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           {/* Logo */}
           <div className="flex items-center">
-            <Link href="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-700 rounded-lg flex items-center justify-center">
-                <ChartBarIcon className="w-5 h-5 text-white" />
+            <Link href="/" className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                <ChartBarIcon className="w-5 h-5 text-primary-foreground" />
               </div>
-              <span className="text-lg font-semibold text-gray-900 hidden sm:block">
+              <span className="text-lg font-semibold hidden sm:block">
                 SEO Dashboard
               </span>
             </Link>
           </div>
 
-          {/* Desktop Navigation - Center */}
-          <div className="hidden md:flex md:items-center md:space-x-1">
-            {allNavItems.map((item) => {
-              const isActive = pathname === item.href ||
-                (item.href !== '/' && pathname.startsWith(item.href))
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-150 ${
-                    isActive
-                      ? 'bg-primary-50 text-primary-700 shadow-sm'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                >
-                  <item.icon className={`h-4 w-4 mr-1.5 ${isActive ? 'text-primary-600' : 'text-gray-400'}`} />
-                  {item.name}
-                </Link>
-              )
-            })}
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex md:items-center md:gap-1">
+            {allNavItems.map((item) => (
+              <NavLink key={item.name} item={item} />
+            ))}
           </div>
 
-          {/* User Menu - Right */}
-          <div className="hidden md:flex md:items-center" ref={userMenuRef}>
-            <div className="relative">
-              <button
-                onClick={() => setUserMenuOpen(!userMenuOpen)}
-                className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 bg-gradient-to-br from-gray-400 to-gray-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                    {(session.user?.name || session.user?.email || 'U').charAt(0).toUpperCase()}
-                  </div>
-                  <div className="text-left hidden lg:block">
-                    <p className="text-sm font-medium text-gray-900 truncate max-w-[120px]">
+          {/* User Menu - Desktop */}
+          <div className="hidden md:flex md:items-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="gap-2 h-auto py-2">
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="bg-primary/10 text-primary font-medium">
+                      {(session.user?.name || session.user?.email || 'U').charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="hidden lg:flex lg:flex-col lg:items-start">
+                    <span className="text-sm font-medium">
                       {session.user?.name || session.user?.email?.split('@')[0]}
-                    </p>
-                    <span className={`inline-flex text-xs px-1.5 py-0.5 rounded border font-medium ${getRoleBadgeColor(session.user?.role || '')}`}>
+                    </span>
+                    <Badge variant={getRoleBadgeVariant(session.user?.role || '')} className="text-[10px] px-1.5 py-0">
                       {session.user?.role}
+                    </Badge>
+                  </div>
+                  <ChevronDownIcon className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>
+                  <div className="flex flex-col">
+                    <span>{session.user?.name || 'User'}</span>
+                    <span className="text-xs font-normal text-muted-foreground">
+                      {session.user?.email}
                     </span>
                   </div>
-                </div>
-                <ChevronDownIcon className={`w-4 h-4 text-gray-400 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
-              </button>
-
-              {/* Dropdown Menu */}
-              {userMenuOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
-                  <div className="px-4 py-3 border-b border-gray-100">
-                    <p className="text-sm font-medium text-gray-900">
-                      {session.user?.name || 'User'}
-                    </p>
-                    <p className="text-xs text-gray-500 truncate">
-                      {session.user?.email}
-                    </p>
-                  </div>
-                  <div className="py-1">
-                    <button
-                      onClick={handleLogout}
-                      className="w-full flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                    >
-                      <ArrowRightOnRectangleIcon className="h-4 w-4 mr-2" />
-                      Sign out
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <ArrowRightOnRectangleIcon className="h-4 w-4 mr-2" />
+                  Sign out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {/* Mobile menu button */}
           <div className="flex items-center md:hidden">
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
-            >
-              {mobileMenuOpen ? (
-                <XMarkIcon className="h-6 w-6" />
-              ) : (
-                <Bars3Icon className="h-6 w-6" />
-              )}
-            </button>
+            <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Bars3Icon className="h-6 w-6" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-72">
+                <SheetHeader>
+                  <SheetTitle>Menu</SheetTitle>
+                </SheetHeader>
+                <div className="mt-6 flex flex-col gap-1">
+                  {allNavItems.map((item) => {
+                    const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))
+
+                    if (item.children) {
+                      return (
+                        <div key={item.name} className="space-y-1">
+                          <div className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md ${
+                            isActive ? 'bg-secondary text-secondary-foreground' : 'text-muted-foreground'
+                          }`}>
+                            <item.icon className="h-5 w-5" />
+                            {item.name}
+                          </div>
+                          <div className="ml-6 space-y-1">
+                            {item.children.map((child) => (
+                              <Link
+                                key={child.href}
+                                href={child.href}
+                                onClick={() => setMobileOpen(false)}
+                                className={`block px-3 py-2 text-sm rounded-md transition-colors ${
+                                  pathname === child.href
+                                    ? 'bg-secondary text-secondary-foreground'
+                                    : 'text-muted-foreground hover:bg-accent'
+                                }`}
+                              >
+                                {child.name}
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    }
+
+                    return (
+                      <Link
+                        key={item.name}
+                        href={item.href}
+                        onClick={() => setMobileOpen(false)}
+                        className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                          isActive
+                            ? 'bg-secondary text-secondary-foreground'
+                            : 'text-muted-foreground hover:bg-accent'
+                        }`}
+                      >
+                        <item.icon className="h-5 w-5" />
+                        {item.name}
+                      </Link>
+                    )
+                  })}
+                </div>
+
+                <Separator className="my-4" />
+
+                <div className="px-3">
+                  <div className="flex items-center gap-3 mb-4">
+                    <Avatar className="h-10 w-10">
+                      <AvatarFallback className="bg-primary/10 text-primary font-medium">
+                        {(session.user?.name || session.user?.email || 'U').charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="text-sm font-medium">
+                        {session.user?.name || session.user?.email?.split('@')[0]}
+                      </p>
+                      <Badge variant={getRoleBadgeVariant(session.user?.role || '')} className="text-[10px]">
+                        {session.user?.role}
+                      </Badge>
+                    </div>
+                  </div>
+                  <Button
+                    variant="destructive"
+                    className="w-full"
+                    onClick={handleLogout}
+                  >
+                    <ArrowRightOnRectangleIcon className="h-4 w-4 mr-2" />
+                    Sign out
+                  </Button>
+                </div>
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
       </div>
-
-      {/* Mobile menu */}
-      {mobileMenuOpen && (
-        <div className="md:hidden bg-white border-t border-gray-200">
-          <div className="px-3 py-3 space-y-1">
-            {allNavItems.map((item) => {
-              const isActive = pathname === item.href ||
-                (item.href !== '/' && pathname.startsWith(item.href))
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center px-3 py-2.5 text-base font-medium rounded-lg transition-colors ${
-                    isActive
-                      ? 'bg-primary-50 text-primary-700'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                >
-                  <item.icon className={`h-5 w-5 mr-3 ${isActive ? 'text-primary-600' : 'text-gray-400'}`} />
-                  {item.name}
-                </Link>
-              )
-            })}
-          </div>
-          <div className="px-3 py-4 border-t border-gray-200">
-            <div className="flex items-center space-x-3 mb-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-gray-400 to-gray-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                {(session.user?.name || session.user?.email || 'U').charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-900">
-                  {session.user?.name || session.user?.email?.split('@')[0]}
-                </p>
-                <span className={`inline-flex text-xs px-1.5 py-0.5 rounded border font-medium ${getRoleBadgeColor(session.user?.role || '')}`}>
-                  {session.user?.role}
-                </span>
-              </div>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center justify-center px-4 py-2.5 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
-            >
-              <ArrowRightOnRectangleIcon className="h-4 w-4 mr-2" />
-              Sign out
-            </button>
-          </div>
-        </div>
-      )}
     </nav>
   )
 }
