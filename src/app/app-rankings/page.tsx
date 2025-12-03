@@ -44,6 +44,7 @@ export default function AppRankingsPage() {
   const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set())
   const [filter, setFilter] = useState<'all' | 'drops' | 'gains' | 'changed'>('all')
   const [sortBy, setSortBy] = useState<'alphabetical' | 'biggestDrops' | 'biggestGains' | 'bestRank'>('alphabetical')
+  const [comparePeriod, setComparePeriod] = useState<'1' | '7' | '30'>('1')
 
   // Load selected cells from localStorage on mount
   useEffect(() => {
@@ -87,13 +88,13 @@ export default function AppRankingsPage() {
 
   useEffect(() => {
     fetchData()
-  }, [selectedDate])
+  }, [selectedDate, comparePeriod])
 
   const fetchData = async () => {
     setIsLoading(true)
     try {
       // Single optimized API call to fetch all data
-      const response = await fetch(`/api/app-rankings/matrix?date=${selectedDate}`)
+      const response = await fetch(`/api/app-rankings/matrix?date=${selectedDate}&compare=${comparePeriod}`)
       const data: MatrixData = await response.json()
 
       setApps(data.apps)
@@ -285,6 +286,30 @@ export default function AppRankingsPage() {
                   <option value="bestRank">Best Rank</option>
                 </select>
               </div>
+
+              <div className="h-5 w-px bg-border" />
+
+              {/* Compare Period */}
+              <div className="flex items-center gap-0.5 bg-muted rounded p-0.5">
+                <span className="text-[10px] text-muted-foreground px-1.5">vs</span>
+                {[
+                  { value: '1', label: '1d' },
+                  { value: '7', label: '7d' },
+                  { value: '30', label: '30d' },
+                ].map(period => (
+                  <button
+                    key={period.value}
+                    onClick={() => setComparePeriod(period.value as typeof comparePeriod)}
+                    className={`px-2 py-1 text-xs font-medium rounded transition-all ${
+                      comparePeriod === period.value
+                        ? 'bg-card text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {period.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Right side */}
@@ -388,13 +413,13 @@ export default function AppRankingsPage() {
                                 </div>
                               ) : data?.prevRank ? (
                                 <div className="flex flex-col items-center gap-0.5">
-                                  <span className="text-muted-foreground/30 text-xs">-</span>
+                                  <span className="text-muted-foreground/50 text-xs font-medium">NR</span>
                                   <span className="text-[10px] text-red-600 dark:text-red-400 font-semibold">
                                     was #{data.prevRank}
                                   </span>
                                 </div>
                               ) : (
-                                <span className="text-muted-foreground/30 text-xs">-</span>
+                                <span className="text-muted-foreground/50 text-xs font-medium">NR</span>
                               )}
                             </td>
                           )

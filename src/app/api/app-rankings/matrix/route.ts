@@ -5,6 +5,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const dateStr = searchParams.get('date') || new Date().toISOString().split('T')[0]
+    const comparePeriod = searchParams.get('compare') || '1' // 1, 7, or 30 days
 
     // Parse the date and create date range for that day
     const startDate = new Date(dateStr)
@@ -12,9 +13,10 @@ export async function GET(request: NextRequest) {
     const endDate = new Date(dateStr)
     endDate.setHours(23, 59, 59, 999)
 
-    // Calculate previous day range
+    // Calculate comparison date range based on period
+    const daysBack = parseInt(comparePeriod) || 1
     const prevStartDate = new Date(startDate)
-    prevStartDate.setDate(prevStartDate.getDate() - 1)
+    prevStartDate.setDate(prevStartDate.getDate() - daysBack)
     const prevEndDate = new Date(prevStartDate)
     prevEndDate.setHours(23, 59, 59, 999)
 
@@ -162,6 +164,7 @@ export async function GET(request: NextRequest) {
       countries,
       date: dateStr,
       prevDate: prevStartDate.toISOString().split('T')[0],
+      comparePeriod: daysBack,
     })
   } catch (error) {
     console.error('Error fetching matrix data:', error)
