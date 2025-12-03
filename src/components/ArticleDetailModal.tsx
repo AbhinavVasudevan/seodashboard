@@ -382,21 +382,39 @@ export default function ArticleDetailModal({ article, onClose, onSave }: Article
             <div className="border-t border-gray-200 pt-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">SEO Processing</h3>
 
-              {/* Show saved scores */}
+              {/* Editable Quality Scores */}
               <div className="bg-green-50 p-4 rounded-lg mb-6">
-                <h4 className="text-md font-medium text-green-900 mb-2">Quality Scores (Saved)</h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <h4 className="text-md font-medium text-green-900 mb-3">Quality Scores</h4>
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <span className="font-medium text-gray-700">AI Score:</span>
-                    <span className={`ml-2 font-semibold ${Number(formData.aiScore) > 20 ? 'text-red-600' : 'text-green-600'}`}>
-                      {formData.aiScore}%
-                    </span>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      AI Score (0-100)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={formData.aiScore}
+                      onChange={(e) => setFormData({ ...formData, aiScore: e.target.value })}
+                      className={`input-field ${Number(formData.aiScore) > 20 ? 'border-red-300' : ''}`}
+                      placeholder="Enter AI score"
+                    />
                   </div>
                   <div>
-                    <span className="font-medium text-gray-700">Plagiarism Score:</span>
-                    <span className={`ml-2 font-semibold ${Number(formData.plagiarismScore) > 10 ? 'text-red-600' : 'text-green-600'}`}>
-                      {formData.plagiarismScore}%
-                    </span>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Plagiarism Score (0-100)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={formData.plagiarismScore}
+                      onChange={(e) => setFormData({ ...formData, plagiarismScore: e.target.value })}
+                      className={`input-field ${Number(formData.plagiarismScore) > 10 ? 'border-red-300' : ''}`}
+                      placeholder="Enter plagiarism score"
+                    />
                   </div>
                 </div>
               </div>
