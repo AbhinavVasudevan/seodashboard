@@ -103,6 +103,8 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
   const [showFreeAffiliates, setShowFreeAffiliates] = useState(false)
   const [isBlocking, setIsBlocking] = useState<string | null>(null)
   const [showCategoryModal, setShowCategoryModal] = useState<{ domain: string } | null>(null)
+  const [selectedDomains, setSelectedDomains] = useState<Set<string>>(new Set())
+  const [isBulkTagging, setIsBulkTagging] = useState(false)
   const limit = 50
 
   // Debounce search input
@@ -269,6 +271,66 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
       setIsBlocking(null)
     }
   }
+
+  const handleBulkTag = async (type: DomainCategory) => {
+    if (!type || selectedDomains.size === 0) return
+
+    setIsBulkTagging(true)
+    const domains = Array.from(selectedDomains)
+    let successCount = 0
+    let errorCount = 0
+
+    for (const domain of domains) {
+      try {
+        const response = await fetch('/api/blocked-domains', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ domain, type })
+        })
+        if (response.ok) successCount++
+        else errorCount++
+      } catch {
+        errorCount++
+      }
+    }
+
+    setIsBulkTagging(false)
+    setSelectedDomains(new Set())
+
+    const typeLabels = {
+      SPAM: 'spam',
+      FREE_AFFILIATE: 'free affiliate',
+      FREE_LINK: 'free link'
+    }
+
+    if (successCount > 0) {
+      toast.success(`${successCount} domain${successCount > 1 ? 's' : ''} marked as ${typeLabels[type]}`)
+    }
+    if (errorCount > 0) {
+      toast.error(`Failed to tag ${errorCount} domain${errorCount > 1 ? 's' : ''}`)
+    }
+    fetchBacklinks()
+  }
+
+  const toggleDomainSelection = (domain: string) => {
+    const newSelected = new Set(selectedDomains)
+    if (newSelected.has(domain)) {
+      newSelected.delete(domain)
+    } else {
+      newSelected.add(domain)
+    }
+    setSelectedDomains(newSelected)
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedDomains.size === backlinks.length) {
+      setSelectedDomains(new Set())
+    } else {
+      setSelectedDomains(new Set(backlinks.map(b => b.rootDomain)))
+    }
+  }
+
+  const uniqueSelectedDomains = Array.from(selectedDomains)
 
   const parseCSV = (text: string): Array<Record<string, string>> => {
     const lines = text.trim().split('\n')
@@ -518,6 +580,51 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
           </div>
         )}
 
+        {/* Bulk Action Bar */}
+        {selectedDomains.size > 0 && (
+          <div className="mb-4 p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                {selectedDomains.size} domain{selectedDomains.size > 1 ? 's' : ''} selected
+              </span>
+              <button
+                onClick={() => setSelectedDomains(new Set())}
+                className="text-xs text-purple-600 dark:text-purple-400 hover:underline"
+              >
+                Clear selection
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground mr-2">Tag as:</span>
+              <button
+                onClick={() => handleBulkTag('SPAM')}
+                disabled={isBulkTagging}
+                className="px-3 py-1.5 text-xs font-medium rounded-md bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors flex items-center gap-1.5"
+              >
+                <NoSymbolIcon className="h-3.5 w-3.5" />
+                Spam
+              </button>
+              <button
+                onClick={() => handleBulkTag('FREE_AFFILIATE')}
+                disabled={isBulkTagging}
+                className="px-3 py-1.5 text-xs font-medium rounded-md bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors flex items-center gap-1.5"
+              >
+                <GiftIcon className="h-3.5 w-3.5" />
+                Free Affiliate
+              </button>
+              <button
+                onClick={() => handleBulkTag('FREE_LINK')}
+                disabled={isBulkTagging}
+                className="px-3 py-1.5 text-xs font-medium rounded-md bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors flex items-center gap-1.5"
+              >
+                <LinkIcon className="h-3.5 w-3.5" />
+                Free Link
+              </button>
+              {isBulkTagging && <span className="spinner-sm ml-2" />}
+            </div>
+          </div>
+        )}
+
         {/* Table */}
         <div className="table-container">
           {isLoading ? (
@@ -536,6 +643,14 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
                 <table className="data-table">
                   <thead>
                     <tr>
+                      <th className="w-10">
+                        <input
+                          type="checkbox"
+                          checked={selectedDomains.size === backlinks.length && backlinks.length > 0}
+                          onChange={toggleSelectAll}
+                          className="h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                        />
+                      </th>
                       <th>Root Domain</th>
                       <th>DR</th>
                       <th>UR</th>
@@ -552,7 +667,15 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
                   </thead>
                   <tbody>
                     {backlinks.map(backlink => (
-                      <tr key={backlink.id}>
+                      <tr key={backlink.id} className={selectedDomains.has(backlink.rootDomain) ? 'bg-purple-50 dark:bg-purple-900/10' : ''}>
+                        <td className="w-10">
+                          <input
+                            type="checkbox"
+                            checked={selectedDomains.has(backlink.rootDomain)}
+                            onChange={() => toggleDomainSelection(backlink.rootDomain)}
+                            className="h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                          />
+                        </td>
                         <td className="cell-primary whitespace-nowrap">
                           <div className="flex items-center gap-2">
                             {backlink.rootDomain}
