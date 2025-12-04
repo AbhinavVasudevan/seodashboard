@@ -1,8 +1,22 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import { DocumentTextIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, ArrowLeftIcon, ArrowDownTrayIcon, EyeIcon } from '@heroicons/react/24/outline'
+import { useState, useEffect, use } from 'react'
+import Link from 'next/link'
+import {
+  DocumentTextIcon,
+  PencilIcon,
+  TrashIcon,
+  MagnifyingGlassIcon,
+  ArrowLeftIcon,
+  ArrowDownTrayIcon,
+  EyeIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  XCircleIcon,
+  PaperAirplaneIcon,
+  DocumentCheckIcon
+} from '@heroicons/react/24/outline'
+import { toast } from 'sonner'
 import ArticleDetailModal from '@/components/ArticleDetailModal'
 
 interface Article {
@@ -46,12 +60,12 @@ interface Brand {
   id: string
   name: string
   description?: string
+  domain?: string | null
 }
 
-export default function BrandArticlesPage() {
-  const params = useParams()
-  const router = useRouter()
-  const brandId = params.id as string
+export default function BrandArticlesPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = use(params)
+  const brandId = resolvedParams.id
 
   const [brand, setBrand] = useState<Brand | null>(null)
   const [articles, setArticles] = useState<Article[]>([])
@@ -67,14 +81,10 @@ export default function BrandArticlesPage() {
 
   const fetchBrandData = async () => {
     try {
-      const response = await fetch('/api/brands')
-      if (!response.ok) throw new Error('Failed to fetch brands')
-
-      const brands = await response.json()
-      const currentBrand = brands.find((b: Brand) => b.id === brandId)
-
-      if (currentBrand) {
-        setBrand(currentBrand)
+      const response = await fetch(`/api/brands/${brandId}`)
+      if (response.ok) {
+        const data = await response.json()
+        setBrand(data)
       }
     } catch (error) {
       console.error('Error fetching brand:', error)
@@ -89,6 +99,7 @@ export default function BrandArticlesPage() {
       setArticles(data)
     } catch (error) {
       console.error('Error fetching articles:', error)
+      toast.error('Failed to fetch articles')
     } finally {
       setIsLoading(false)
     }
@@ -97,12 +108,18 @@ export default function BrandArticlesPage() {
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this article?')) {
       try {
-        await fetch(`/api/articles?id=${id}`, {
+        const response = await fetch(`/api/articles?id=${id}`, {
           method: 'DELETE',
         })
-        fetchArticles()
+        if (response.ok) {
+          toast.success('Article deleted')
+          fetchArticles()
+        } else {
+          toast.error('Failed to delete article')
+        }
       } catch (error) {
         console.error('Error deleting article:', error)
+        toast.error('Failed to delete article')
       }
     }
   }
@@ -117,22 +134,45 @@ export default function BrandArticlesPage() {
     return matchesSearch && matchesStatus
   })
 
-  const getStatusColor = (status: string) => {
+  const getStatusBadge = (status: string) => {
     switch (status) {
       case 'LIVE':
-        return 'bg-green-100 text-green-800'
+        return 'badge-success'
       case 'PUBLISHED':
-        return 'bg-green-100 text-green-800'
+        return 'badge-success'
       case 'SENT_TO_DEV':
-        return 'bg-blue-100 text-blue-800'
+        return 'badge-info'
       case 'ACCEPTED':
-        return 'bg-cyan-100 text-cyan-800'
+        return 'badge-info'
       case 'SUBMITTED':
-        return 'bg-yellow-100 text-yellow-800'
+        return 'badge-warning'
       case 'REJECTED':
-        return 'bg-red-100 text-red-800'
+        return 'badge-destructive'
+      case 'UNPUBLISHED':
+        return 'badge-secondary'
       default:
-        return 'bg-gray-100 text-gray-800'
+        return 'badge-secondary'
+    }
+  }
+
+  const formatStatus = (status: string) => {
+    switch (status) {
+      case 'SENT_TO_DEV':
+        return 'Sent to Dev'
+      case 'LIVE':
+        return 'Live'
+      case 'PUBLISHED':
+        return 'Published'
+      case 'ACCEPTED':
+        return 'Accepted'
+      case 'SUBMITTED':
+        return 'Pending'
+      case 'REJECTED':
+        return 'Rejected'
+      case 'UNPUBLISHED':
+        return 'Unpublished'
+      default:
+        return status
     }
   }
 
@@ -166,6 +206,7 @@ export default function BrandArticlesPage() {
     a.click()
     document.body.removeChild(a)
     window.URL.revokeObjectURL(url)
+    toast.success('Articles exported successfully')
   }
 
   // Count articles by status
@@ -178,201 +219,247 @@ export default function BrandArticlesPage() {
     rejected: articles.filter(a => a.status === 'REJECTED').length,
   }
 
+  // Calculate total word count
+  const totalWords = articles.reduce((sum, a) => sum + (a.finalWordCount || a.originalWc || 0), 0)
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-secondary-50">
+    <div className="page-container">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-6">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => router.push(`/brands/${brandId}`)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <ArrowLeftIcon className="h-5 w-5" />
-              </button>
+      <div className="page-header">
+        <div className="page-header-content">
+          <div className="flex items-center gap-4">
+            <Link href={`/brands/${brandId}`} className="action-btn">
+              <ArrowLeftIcon className="h-5 w-5" />
+            </Link>
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/10 dark:bg-primary/20 rounded-lg">
+                <DocumentTextIcon className="h-6 w-6 text-primary" />
+              </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Articles - {brand?.name}</h1>
-                <p className="text-gray-600 mt-1">Manage content workflow and track article status</p>
+                <h1 className="page-title">Articles {brand?.name ? `- ${brand.name}` : ''}</h1>
+                <p className="text-sm text-muted-foreground">Manage content workflow and track article status</p>
               </div>
             </div>
-            <div className="flex gap-3">
-              <button
-                onClick={exportToCSV}
-                className="btn-secondary flex items-center gap-2"
-              >
-                <ArrowDownTrayIcon className="h-5 w-5" />
-                Export
-              </button>
-            </div>
           </div>
+          <button
+            onClick={exportToCSV}
+            className="btn-secondary"
+          >
+            <ArrowDownTrayIcon className="h-4 w-4" />
+            Export
+          </button>
         </div>
-      </header>
+      </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="page-content">
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
-          <div className="card">
-            <div className="text-sm font-medium text-gray-600">Total</div>
-            <div className="text-2xl font-semibold text-gray-900 mt-1">{statusCounts.total}</div>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
+          <div className="stat-card">
+            <div className="stat-value text-foreground">{statusCounts.total}</div>
+            <div className="stat-label">Total Articles</div>
           </div>
-          <div className="card">
-            <div className="text-sm font-medium text-gray-600">Pending Review</div>
-            <div className="text-2xl font-semibold text-yellow-600 mt-1">{statusCounts.submitted}</div>
+          <div className="stat-card">
+            <div className="stat-value text-blue-600 dark:text-blue-400">{totalWords.toLocaleString()}</div>
+            <div className="stat-label">Total Words</div>
           </div>
-          <div className="card">
-            <div className="text-sm font-medium text-gray-600">Accepted</div>
-            <div className="text-2xl font-semibold text-cyan-600 mt-1">{statusCounts.accepted}</div>
-          </div>
-          <div className="card">
-            <div className="text-sm font-medium text-gray-600">Sent to Dev</div>
-            <div className="text-2xl font-semibold text-blue-600 mt-1">{statusCounts.sentToDev}</div>
-          </div>
-          <div className="card">
-            <div className="text-sm font-medium text-gray-600">Live</div>
-            <div className="text-2xl font-semibold text-green-600 mt-1">{statusCounts.live}</div>
-          </div>
-          <div className="card">
-            <div className="text-sm font-medium text-gray-600">Rejected</div>
-            <div className="text-2xl font-semibold text-red-600 mt-1">{statusCounts.rejected}</div>
-          </div>
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'SUBMITTED' ? '' : 'SUBMITTED')}
+            className={`stat-card hover:shadow-md transition-all text-left ${statusFilter === 'SUBMITTED' ? 'ring-2 ring-yellow-500' : ''}`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="stat-value text-yellow-600 dark:text-yellow-400">{statusCounts.submitted}</div>
+                <div className="stat-label">Pending</div>
+              </div>
+              <ClockIcon className={`h-5 w-5 text-yellow-400 ${statusFilter === 'SUBMITTED' ? 'opacity-100' : 'opacity-50'}`} />
+            </div>
+          </button>
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'ACCEPTED' ? '' : 'ACCEPTED')}
+            className={`stat-card hover:shadow-md transition-all text-left ${statusFilter === 'ACCEPTED' ? 'ring-2 ring-cyan-500' : ''}`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="stat-value text-cyan-600 dark:text-cyan-400">{statusCounts.accepted}</div>
+                <div className="stat-label">Accepted</div>
+              </div>
+              <DocumentCheckIcon className={`h-5 w-5 text-cyan-400 ${statusFilter === 'ACCEPTED' ? 'opacity-100' : 'opacity-50'}`} />
+            </div>
+          </button>
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'SENT_TO_DEV' ? '' : 'SENT_TO_DEV')}
+            className={`stat-card hover:shadow-md transition-all text-left ${statusFilter === 'SENT_TO_DEV' ? 'ring-2 ring-blue-500' : ''}`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="stat-value text-blue-600 dark:text-blue-400">{statusCounts.sentToDev}</div>
+                <div className="stat-label">Sent to Dev</div>
+              </div>
+              <PaperAirplaneIcon className={`h-5 w-5 text-blue-400 ${statusFilter === 'SENT_TO_DEV' ? 'opacity-100' : 'opacity-50'}`} />
+            </div>
+          </button>
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'LIVE' ? '' : 'LIVE')}
+            className={`stat-card hover:shadow-md transition-all text-left ${statusFilter === 'LIVE' ? 'ring-2 ring-green-500' : ''}`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="stat-value text-green-600 dark:text-green-400">{statusCounts.live}</div>
+                <div className="stat-label">Live</div>
+              </div>
+              <CheckCircleIcon className={`h-5 w-5 text-green-400 ${statusFilter === 'LIVE' ? 'opacity-100' : 'opacity-50'}`} />
+            </div>
+          </button>
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'REJECTED' ? '' : 'REJECTED')}
+            className={`stat-card hover:shadow-md transition-all text-left ${statusFilter === 'REJECTED' ? 'ring-2 ring-red-500' : ''}`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="stat-value text-red-600 dark:text-red-400">{statusCounts.rejected}</div>
+                <div className="stat-label">Rejected</div>
+              </div>
+              <XCircleIcon className={`h-5 w-5 text-red-400 ${statusFilter === 'REJECTED' ? 'opacity-100' : 'opacity-50'}`} />
+            </div>
+          </button>
         </div>
 
         {/* Filters */}
-        <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="relative">
-            <MagnifyingGlassIcon className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+        <div className="filter-bar">
+          <div className="relative flex-1 max-w-md">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
               placeholder="Search by title, Sl No, writer..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="input-field pl-10"
+              className="input-field pl-9"
             />
           </div>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="input-field"
+            className="input-field w-auto"
           >
             <option value="">All Statuses</option>
-            <option value="SUBMITTED">Pending Review</option>
+            <option value="SUBMITTED">Pending</option>
             <option value="ACCEPTED">Accepted</option>
             <option value="SENT_TO_DEV">Sent to Dev</option>
             <option value="LIVE">Live</option>
+            <option value="PUBLISHED">Published</option>
             <option value="REJECTED">Rejected</option>
           </select>
         </div>
 
+        {/* Status Filter Banner */}
+        {statusFilter && (
+          <div className="mb-4 p-3 bg-primary/5 dark:bg-primary/10 border border-primary/20 rounded-lg flex items-center justify-between">
+            <span className="text-sm font-medium text-primary">
+              Showing {formatStatus(statusFilter)} articles ({filteredArticles.length})
+            </span>
+            <button
+              onClick={() => setStatusFilter('')}
+              className="text-xs text-primary hover:underline flex items-center gap-1"
+            >
+              <XCircleIcon className="h-3.5 w-3.5" />
+              Clear filter
+            </button>
+          </div>
+        )}
+
         {/* Articles Table */}
-        <div className="card">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Sl No
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Topic/Title
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Writer
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Words
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Scores
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Links
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {isLoading ? (
+        <div className="table-container">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="spinner-md text-primary"></div>
+            </div>
+          ) : filteredArticles.length === 0 ? (
+            <div className="empty-state">
+              <DocumentTextIcon className="empty-state-icon" />
+              <p className="empty-state-title">No articles found</p>
+              <p className="empty-state-description">
+                {searchTerm || statusFilter ? 'Try adjusting your filters' : 'No articles for this brand yet'}
+              </p>
+            </div>
+          ) : (
+            <div className="table-wrapper scrollbar-thin">
+              <table className="data-table">
+                <thead>
                   <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
-                      Loading articles...
-                    </td>
+                    <th>Sl No</th>
+                    <th>Topic / Title</th>
+                    <th>Writer</th>
+                    <th>Words</th>
+                    <th>Scores</th>
+                    <th>Status</th>
+                    <th>Links</th>
+                    <th></th>
                   </tr>
-                ) : filteredArticles.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
-                      No articles found for this brand.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredArticles.map((article) => (
-                    <tr key={article.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                </thead>
+                <tbody>
+                  {filteredArticles.map((article) => (
+                    <tr key={article.id}>
+                      <td className="cell-primary whitespace-nowrap font-mono text-xs">
                         {article.slNo}
                       </td>
-                      <td className="px-4 py-4">
-                        <div className="flex items-start">
-                          <DocumentTextIcon className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0 mt-0.5" />
-                          <div>
-                            <div className="text-sm font-medium text-gray-900 max-w-xs truncate" title={article.topicTitle}>
+                      <td className="max-w-xs">
+                        <div className="flex items-start gap-2">
+                          <DocumentTextIcon className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                          <div className="min-w-0">
+                            <div className="cell-primary truncate" title={article.topicTitle}>
                               {article.topicTitle}
                             </div>
                             {article.primaryKeyword && (
-                              <div className="text-xs text-gray-500">
+                              <div className="text-xs text-muted-foreground truncate">
                                 {article.primaryKeyword}
                               </div>
                             )}
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="cell-secondary whitespace-nowrap">
                         {article.writer || article.writtenBy?.name || '-'}
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {article.finalWordCount || article.originalWc || '-'}
+                      <td className="cell-secondary whitespace-nowrap">
+                        {(article.finalWordCount || article.originalWc)?.toLocaleString() || '-'}
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
+                      <td className="whitespace-nowrap">
                         <div className="flex flex-col gap-1">
                           {article.aiScore !== null && (
-                            <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded ${
-                              article.aiScore > 20 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                            <span className={`inline-flex px-1.5 py-0.5 text-[10px] font-medium rounded ${
+                              article.aiScore > 20 ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
                             }`}>
                               AI: {article.aiScore}%
                             </span>
                           )}
                           {article.plagiarismScore !== null && (
-                            <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded ${
-                              article.plagiarismScore > 10 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                            <span className={`inline-flex px-1.5 py-0.5 text-[10px] font-medium rounded ${
+                              article.plagiarismScore > 10 ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
                             }`}>
                               Plag: {article.plagiarismScore}%
                             </span>
                           )}
                           {article.aiScore === null && article.plagiarismScore === null && (
-                            <span className="text-xs text-gray-400">-</span>
+                            <span className="text-xs text-muted-foreground">-</span>
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <span className={`status-badge ${getStatusColor(article.status)}`}>
-                          {article.status === 'SENT_TO_DEV' ? 'Sent to Dev' : article.status.replace('_', ' ')}
+                      <td className="whitespace-nowrap">
+                        <span className={getStatusBadge(article.status)}>
+                          {formatStatus(article.status)}
                         </span>
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm">
+                      <td className="whitespace-nowrap">
                         <div className="flex flex-col gap-1">
                           {article.url && (
                             <a
                               href={article.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-green-600 hover:text-green-800 font-medium"
+                              className="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400 hover:underline font-medium"
                             >
                               <EyeIcon className="h-3.5 w-3.5" />
-                              View Live
+                              Live
                             </a>
                           )}
                           {article.contentUrl && (
@@ -380,10 +467,10 @@ export default function BrandArticlesPage() {
                               href={article.contentUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800"
+                              className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
                             >
                               <DocumentTextIcon className="h-3.5 w-3.5" />
-                              Final Doc
+                              Doc
                             </a>
                           )}
                           {article.documentUrl && !article.contentUrl && (
@@ -391,29 +478,29 @@ export default function BrandArticlesPage() {
                               href={article.documentUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-gray-600 hover:text-gray-800"
+                              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:underline"
                             >
                               <DocumentTextIcon className="h-3.5 w-3.5" />
-                              Draft Doc
+                              Draft
                             </a>
                           )}
                           {!article.url && !article.contentUrl && !article.documentUrl && (
-                            <span className="text-xs text-gray-400">-</span>
+                            <span className="text-xs text-muted-foreground">-</span>
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex gap-2">
+                      <td className="whitespace-nowrap">
+                        <div className="flex gap-1">
                           <button
                             onClick={() => setSelectedArticle(article)}
-                            className="text-indigo-600 hover:text-indigo-900"
+                            className="action-btn"
                             title="Edit"
                           >
                             <PencilIcon className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => handleDelete(article.id)}
-                            className="text-red-600 hover:text-red-900"
+                            className="action-btn-danger"
                             title="Delete"
                           >
                             <TrashIcon className="h-4 w-4" />
@@ -421,13 +508,20 @@ export default function BrandArticlesPage() {
                         </div>
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-      </main>
+
+        {/* Results count */}
+        {!isLoading && filteredArticles.length > 0 && (
+          <div className="mt-4 text-sm text-muted-foreground text-center">
+            Showing {filteredArticles.length} of {articles.length} articles
+          </div>
+        )}
+      </div>
 
       {/* Article Detail Modal */}
       {selectedArticle && (
