@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
             select: {
               id: true,
               brandId: true,
+              price: true,
               brand: {
                 select: {
                   id: true,
@@ -73,11 +74,13 @@ export async function GET(request: NextRequest) {
       prisma.linkDirectoryDomain.count({ where }),
     ])
 
-    // Transform data to include brand counts
+    // Transform data to include brand counts and spending
     const transformedDomains = domains.map((domain) => {
       // Get unique brands with backlinks from this domain
       const brandMap = new Map<string, { id: string; name: string; count: number }>()
+      let totalSpent = 0
       domain.backlinks.forEach((backlink) => {
+        if (backlink.price) totalSpent += backlink.price
         const existing = brandMap.get(backlink.brandId)
         if (existing) {
           existing.count++
@@ -102,11 +105,17 @@ export async function GET(request: NextRequest) {
         contactEmail: domain.contactEmail,
         contactFormUrl: domain.contactFormUrl,
         remarks: domain.remarks,
+        // Price/Supplier info
+        supplierName: domain.supplierName,
+        supplierEmail: domain.supplierEmail,
+        currentPrice: domain.currentPrice,
+        currency: domain.currency,
         createdAt: domain.createdAt,
         updatedAt: domain.updatedAt,
         // Aggregated data
         totalBacklinks: domain.backlinks.length,
         totalProspects: domain.prospects.length,
+        totalSpent,
         brands: Array.from(brandMap.values()),
         hasLiveBacklinks: domain.backlinks.length > 0,
       }
@@ -172,6 +181,10 @@ export async function POST(request: NextRequest) {
       contactEmail,
       contactFormUrl,
       remarks,
+      supplierName,
+      supplierEmail,
+      currentPrice,
+      currency,
     } = body
 
     if (!rootDomain) {
@@ -193,6 +206,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const price = currentPrice ? parseFloat(currentPrice) : null
+
     const domain = await prisma.linkDirectoryDomain.create({
       data: {
         rootDomain: rootDomain.toLowerCase(),
@@ -205,6 +220,19 @@ export async function POST(request: NextRequest) {
         contactEmail: contactEmail || null,
         contactFormUrl: contactFormUrl || null,
         remarks: remarks || null,
+        supplierName: supplierName || null,
+        supplierEmail: supplierEmail || null,
+        currentPrice: price,
+        currency: currency || 'USD',
+        // Create initial price history if price is set
+        ...(price ? {
+          priceHistory: {
+            create: {
+              price,
+              notes: 'Initial price',
+            },
+          },
+        } : {}),
       },
     })
 
@@ -222,13 +250,27 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
-    const { id, ...updateData } = body
+    const { id, priceChangeNote, ...updateData } = body
 
     if (!id) {
       return NextResponse.json(
         { error: 'Domain ID is required' },
         { status: 400 }
       )
+    }
+
+    // Check if price is changing
+    const newPrice = updateData.currentPrice !== undefined
+      ? (updateData.currentPrice ? parseFloat(updateData.currentPrice) : null)
+      : undefined
+
+    let priceChanged = false
+    if (newPrice !== undefined) {
+      const existingDomain = await prisma.linkDirectoryDomain.findUnique({
+        where: { id },
+        select: { currentPrice: true },
+      })
+      priceChanged = existingDomain?.currentPrice !== newPrice && newPrice !== null
     }
 
     const domain = await prisma.linkDirectoryDomain.update({
@@ -261,8 +303,29 @@ export async function PUT(request: NextRequest) {
         remarks: updateData.remarks !== undefined
           ? updateData.remarks
           : undefined,
+        supplierName: updateData.supplierName !== undefined
+          ? updateData.supplierName
+          : undefined,
+        supplierEmail: updateData.supplierEmail !== undefined
+          ? updateData.supplierEmail
+          : undefined,
+        currentPrice: newPrice,
+        currency: updateData.currency !== undefined
+          ? updateData.currency
+          : undefined,
       },
     })
+
+    // Create price history record if price changed
+    if (priceChanged && typeof newPrice === 'number') {
+      await prisma.domainPriceHistory.create({
+        data: {
+          linkDirectoryDomainId: id,
+          price: newPrice,
+          notes: priceChangeNote || 'Price updated',
+        },
+      })
+    }
 
     return NextResponse.json(domain)
   } catch (error) {

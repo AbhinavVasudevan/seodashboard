@@ -41,6 +41,9 @@ export async function GET(
             },
           },
         },
+        priceHistory: {
+          orderBy: { effectiveFrom: 'desc' },
+        },
       },
     })
 

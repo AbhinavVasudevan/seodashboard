@@ -275,15 +275,37 @@ model LinkDirectoryDomain {
   contactEmail    String?
   contactFormUrl  String?
   remarks         String?
+
+  // Supplier/Deal info
+  supplierName    String?             // Contact person name
+  supplierEmail   String?             // Supplier email (different from contact email for outreach)
+  currentPrice    Float?              // Current negotiated price per link
+  currency        String?             @default("USD")
+
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 
-  // Relations - which backlinks and prospects belong to this domain
+  // Relations
   backlinks       Backlink[]
   prospects       BacklinkProspect[]
+  priceHistory    DomainPriceHistory[]
 
   @@index([rootDomain])
   @@map("link_directory_domains")
+}
+
+// Price history for domain deals - tracks when prices change
+model DomainPriceHistory {
+  id                    String              @id @default(cuid())
+  linkDirectoryDomainId String
+  linkDirectoryDomain   LinkDirectoryDomain @relation(fields: [linkDirectoryDomainId], references: [id], onDelete: Cascade)
+  price                 Float
+  effectiveFrom         DateTime            @default(now())
+  notes                 String?             // e.g., "Price increase", "Negotiated discount"
+  createdAt             DateTime            @default(now())
+
+  @@index([linkDirectoryDomainId])
+  @@map("domain_price_history")
 }
 
 // ==========================================

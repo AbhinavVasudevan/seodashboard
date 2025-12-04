@@ -31,16 +31,33 @@ interface Domain {
   contactEmail: string | null
   contactFormUrl: string | null
   remarks: string | null
+  // Price/Supplier info
+  supplierName: string | null
+  supplierEmail: string | null
+  currentPrice: number | null
+  currency: string | null
   createdAt: string
   totalBacklinks: number
   totalProspects: number
+  totalSpent: number
   brands: Brand[]
   hasLiveBacklinks: boolean
+}
+
+interface PriceHistory {
+  id: string
+  price: number
+  effectiveFrom: string
+  notes: string | null
 }
 
 interface DomainDetails {
   id: string
   rootDomain: string
+  currentPrice: number | null
+  supplierName: string | null
+  supplierEmail: string | null
+  priceHistory: PriceHistory[]
   backlinksByBrand: Array<{
     brand: { id: string; name: string; domain: string | null }
     backlinks: Array<{
@@ -102,6 +119,11 @@ export default function LinkDirectoryPage() {
     contactEmail: '',
     contactFormUrl: '',
     remarks: '',
+    supplierName: '',
+    supplierEmail: '',
+    currentPrice: '',
+    currency: 'USD',
+    priceChangeNote: '',
   })
 
   // Import state
@@ -182,6 +204,11 @@ export default function LinkDirectoryPage() {
       contactEmail: domain.contactEmail || '',
       contactFormUrl: domain.contactFormUrl || '',
       remarks: domain.remarks || '',
+      supplierName: domain.supplierName || '',
+      supplierEmail: domain.supplierEmail || '',
+      currentPrice: domain.currentPrice?.toString() || '',
+      currency: domain.currency || 'USD',
+      priceChangeNote: '',
     })
     setShowEditModal(true)
   }
@@ -305,6 +332,11 @@ export default function LinkDirectoryPage() {
                   contactEmail: '',
                   contactFormUrl: '',
                   remarks: '',
+                  supplierName: '',
+                  supplierEmail: '',
+                  currentPrice: '',
+                  currency: 'USD',
+                  priceChangeNote: '',
                 })
                 setShowEditModal(true)
               }}
@@ -367,11 +399,10 @@ export default function LinkDirectoryPage() {
                     <th className="w-8"></th>
                     <th>Root Domain</th>
                     <th>DR</th>
-                    <th>Traffic</th>
-                    <th>Nofollow</th>
-                    <th>Contacted</th>
-                    <th>Method</th>
+                    <th>Price</th>
+                    <th>Total Spent</th>
                     <th>Brands</th>
+                    <th>Contacted</th>
                     <th>Remarks</th>
                     <th>Actions</th>
                   </tr>
@@ -379,7 +410,7 @@ export default function LinkDirectoryPage() {
                 <tbody>
                   {domains.length === 0 ? (
                     <tr>
-                      <td colSpan={10}>
+                      <td colSpan={9}>
                         <div className="empty-state">
                           <GlobeAltIcon className="empty-state-icon" />
                           <p className="empty-state-title">No domains found</p>
@@ -438,21 +469,23 @@ export default function LinkDirectoryPage() {
                               {domain.domainRating || '-'}
                             </span>
                           </td>
-                          <td className="whitespace-nowrap text-muted-foreground">
-                            {formatTraffic(domain.domainTraffic)}
-                          </td>
                           <td className="whitespace-nowrap">
-                            {domain.nofollow ? (
-                              <span className="badge-destructive">Yes</span>
+                            {domain.currentPrice ? (
+                              <span className="font-medium text-green-600 dark:text-green-400">
+                                ${domain.currentPrice}
+                              </span>
                             ) : (
                               <span className="text-muted-foreground">-</span>
                             )}
                           </td>
-                          <td className="whitespace-nowrap text-muted-foreground">
-                            {domain.contactedOn ? new Date(domain.contactedOn).toLocaleDateString() : '-'}
-                          </td>
-                          <td className="whitespace-nowrap text-muted-foreground">
-                            {domain.contactMethod?.replace('_', ' ') || '-'}
+                          <td className="whitespace-nowrap">
+                            {domain.totalSpent > 0 ? (
+                              <span className="text-foreground">
+                                ${domain.totalSpent.toLocaleString()}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
                           </td>
                           <td>
                             {domain.brands.length > 0 ? (
@@ -472,6 +505,9 @@ export default function LinkDirectoryPage() {
                               <span className="text-muted-foreground">-</span>
                             )}
                           </td>
+                          <td className="whitespace-nowrap text-muted-foreground">
+                            {domain.contactedOn ? new Date(domain.contactedOn).toLocaleDateString() : '-'}
+                          </td>
                           <td className="cell-truncate max-w-[150px]" title={domain.remarks || ''}>
                             {domain.remarks || '-'}
                           </td>
@@ -489,7 +525,7 @@ export default function LinkDirectoryPage() {
                         {/* Expanded details */}
                         {expandedDomains.has(domain.id) && (
                           <tr key={`${domain.id}-details`}>
-                            <td colSpan={10} className="bg-muted/50 p-4">
+                            <td colSpan={9} className="bg-muted/50 p-4">
                               {loadingDetails.has(domain.id) ? (
                                 <div className="flex items-center justify-center py-4">
                                   <div className="spinner-sm text-primary"></div>
@@ -497,6 +533,47 @@ export default function LinkDirectoryPage() {
                                 </div>
                               ) : domainDetails[domain.id] ? (
                                 <div className="space-y-4">
+                                  {/* Price Info & History */}
+                                  {(domainDetails[domain.id].currentPrice || domainDetails[domain.id].priceHistory?.length > 0) && (
+                                    <div className="bg-card rounded-lg p-4 border border-border">
+                                      <div className="flex items-center justify-between mb-3">
+                                        <div className="flex items-center gap-4">
+                                          <div>
+                                            <div className="text-xs text-muted-foreground">Current Price</div>
+                                            <div className="text-lg font-semibold text-green-600 dark:text-green-400">
+                                              ${domainDetails[domain.id].currentPrice || 'Not set'}
+                                            </div>
+                                          </div>
+                                          {domainDetails[domain.id].supplierName && (
+                                            <div>
+                                              <div className="text-xs text-muted-foreground">Supplier</div>
+                                              <div className="text-sm text-foreground">{domainDetails[domain.id].supplierName}</div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                      {domainDetails[domain.id].priceHistory?.length > 0 && (
+                                        <div>
+                                          <div className="text-xs font-medium text-muted-foreground mb-2">Price History</div>
+                                          <div className="space-y-1">
+                                            {domainDetails[domain.id].priceHistory.slice(0, 5).map((ph: PriceHistory) => (
+                                              <div key={ph.id} className="flex items-center gap-3 text-sm">
+                                                <span className="text-green-600 font-medium">${ph.price}</span>
+                                                <span className="text-muted-foreground">
+                                                  {new Date(ph.effectiveFrom).toLocaleDateString()}
+                                                </span>
+                                                {ph.notes && (
+                                                  <span className="text-muted-foreground/70 text-xs">({ph.notes})</span>
+                                                )}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Backlinks by Brand */}
                                   <div className="text-sm font-medium text-foreground">
                                     Backlinks by Brand ({domainDetails[domain.id].stats.totalBacklinks} total,
                                     ${domainDetails[domain.id].stats.totalSpent.toFixed(2)} spent)
@@ -690,6 +767,77 @@ export default function LinkDirectoryPage() {
                       className="input-field"
                       placeholder="https://example.com/contact"
                     />
+                  </div>
+
+                  {/* Supplier/Price Section */}
+                  <div className="md:col-span-2 border-t border-border pt-4 mt-2">
+                    <h4 className="text-sm font-medium text-foreground mb-3">Supplier & Pricing</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="input-label">Supplier Name</label>
+                        <input
+                          type="text"
+                          value={formData.supplierName}
+                          onChange={(e) => setFormData({ ...formData, supplierName: e.target.value })}
+                          className="input-field"
+                          placeholder="Supplier/Agency name"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="input-label">Supplier Email</label>
+                        <input
+                          type="email"
+                          value={formData.supplierEmail}
+                          onChange={(e) => setFormData({ ...formData, supplierEmail: e.target.value })}
+                          className="input-field"
+                          placeholder="supplier@example.com"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="input-label">Current Price</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={formData.currentPrice}
+                          onChange={(e) => setFormData({ ...formData, currentPrice: e.target.value })}
+                          className="input-field"
+                          placeholder="0.00"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="input-label">Currency</label>
+                        <select
+                          value={formData.currency}
+                          onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+                          className="input-field"
+                        >
+                          <option value="USD">USD</option>
+                          <option value="EUR">EUR</option>
+                          <option value="GBP">GBP</option>
+                          <option value="INR">INR</option>
+                        </select>
+                      </div>
+
+                      {editingDomain && editingDomain.currentPrice && (
+                        <div className="md:col-span-2">
+                          <label className="input-label">Price Change Note</label>
+                          <input
+                            type="text"
+                            value={formData.priceChangeNote}
+                            onChange={(e) => setFormData({ ...formData, priceChangeNote: e.target.value })}
+                            className="input-field"
+                            placeholder="Reason for price change (optional)"
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Current price: ${editingDomain.currentPrice} {editingDomain.currency || 'USD'}
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="md:col-span-2">
