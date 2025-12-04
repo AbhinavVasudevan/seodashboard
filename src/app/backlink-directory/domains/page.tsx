@@ -591,103 +591,112 @@ export default function LinkDirectoryPage() {
                         {/* Expanded details */}
                         {expandedDomains.has(domain.id) && (
                           <tr key={`${domain.id}-details`}>
-                            <td colSpan={9} className="bg-muted/50 p-4">
+                            <td colSpan={9} className="bg-muted/30 p-0">
                               {loadingDetails.has(domain.id) ? (
-                                <div className="flex items-center justify-center py-4">
+                                <div className="flex items-center justify-center py-8">
                                   <div className="spinner-sm text-primary"></div>
                                   <span className="ml-2 text-muted-foreground">Loading details...</span>
                                 </div>
                               ) : domainDetails[domain.id] ? (
-                                <div className="space-y-4">
-                                  {/* Price Info & History */}
-                                  {(domainDetails[domain.id].currentPrice || domainDetails[domain.id].priceHistory?.length > 0) && (
-                                    <div className="bg-card rounded-lg p-4 border border-border">
-                                      <div className="flex items-center justify-between mb-3">
-                                        <div className="flex items-center gap-4">
-                                          <div>
-                                            <div className="text-xs text-muted-foreground">Current Price</div>
-                                            <div className="text-lg font-semibold text-green-600 dark:text-green-400">
-                                              ${domainDetails[domain.id].currentPrice || 'Not set'}
-                                            </div>
+                                <div className="p-4 space-y-4">
+                                  {/* Summary Stats Row */}
+                                  <div className="flex items-center gap-6 pb-3 border-b border-border">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs text-muted-foreground">Total Backlinks:</span>
+                                      <span className="text-sm font-semibold text-foreground">{domainDetails[domain.id].stats.totalBacklinks}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs text-muted-foreground">Brands:</span>
+                                      <span className="text-sm font-semibold text-foreground">{domainDetails[domain.id].stats.totalBrands}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs text-muted-foreground">Total Spent:</span>
+                                      <span className="text-sm font-semibold text-green-600 dark:text-green-400">${domainDetails[domain.id].stats.totalSpent.toFixed(2)}</span>
+                                    </div>
+                                    {domainDetails[domain.id].currentPrice && (
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs text-muted-foreground">Current Price:</span>
+                                        <span className="text-sm font-semibold text-primary">${domainDetails[domain.id].currentPrice}</span>
+                                      </div>
+                                    )}
+                                    {domainDetails[domain.id].supplierName && (
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs text-muted-foreground">Supplier:</span>
+                                        <span className="text-sm text-foreground">{domainDetails[domain.id].supplierName}</span>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Backlinks by Brand */}
+                                  <div className="space-y-3">
+                                    {domainDetails[domain.id].backlinksByBrand.map(brandGroup => (
+                                      <div key={brandGroup.brand.id} className="bg-card rounded-lg border border-border overflow-hidden">
+                                        <div className="flex items-center justify-between px-4 py-2.5 bg-muted/50 border-b border-border">
+                                          <div className="flex items-center gap-2">
+                                            <span className="badge-purple">{brandGroup.brand.name}</span>
                                           </div>
-                                          {domainDetails[domain.id].supplierName && (
-                                            <div>
-                                              <div className="text-xs text-muted-foreground">Supplier</div>
-                                              <div className="text-sm text-foreground">{domainDetails[domain.id].supplierName}</div>
+                                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                            <span>{brandGroup.backlinks.length} {brandGroup.backlinks.length === 1 ? 'link' : 'links'}</span>
+                                            {brandGroup.totalSpent > 0 && (
+                                              <span className="text-green-600 dark:text-green-400 font-medium">${brandGroup.totalSpent.toFixed(2)} spent</span>
+                                            )}
+                                          </div>
+                                        </div>
+                                        <div className="divide-y divide-border">
+                                          {brandGroup.backlinks.slice(0, 5).map(backlink => (
+                                            <div key={backlink.id} className="px-4 py-2.5 flex items-center gap-3 hover:bg-muted/30 transition-colors">
+                                              <a
+                                                href={backlink.referringPageUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-xs text-primary hover:underline truncate flex-1 min-w-0"
+                                              >
+                                                {backlink.referringPageUrl}
+                                              </a>
+                                              <span className="text-muted-foreground/40 flex-shrink-0">→</span>
+                                              <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">{backlink.targetUrl}</span>
+                                              <div className="flex items-center gap-2 flex-shrink-0">
+                                                {backlink.dr && (
+                                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 font-medium">
+                                                    DR {backlink.dr}
+                                                  </span>
+                                                )}
+                                                {backlink.price && backlink.price > 0 && (
+                                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 font-medium">
+                                                    ${backlink.price}
+                                                  </span>
+                                                )}
+                                              </div>
+                                            </div>
+                                          ))}
+                                          {brandGroup.backlinks.length > 5 && (
+                                            <div className="px-4 py-2 text-xs text-muted-foreground bg-muted/30">
+                                              +{brandGroup.backlinks.length - 5} more backlinks
                                             </div>
                                           )}
                                         </div>
                                       </div>
-                                      {domainDetails[domain.id].priceHistory?.length > 0 && (
-                                        <div>
-                                          <div className="text-xs font-medium text-muted-foreground mb-2">Price History</div>
-                                          <div className="space-y-1">
-                                            {domainDetails[domain.id].priceHistory.slice(0, 5).map((ph: PriceHistory) => (
-                                              <div key={ph.id} className="flex items-center gap-3 text-sm">
-                                                <span className="text-green-600 font-medium">${ph.price}</span>
-                                                <span className="text-muted-foreground">
-                                                  {new Date(ph.effectiveFrom).toLocaleDateString()}
-                                                </span>
-                                                {ph.notes && (
-                                                  <span className="text-muted-foreground/70 text-xs">({ph.notes})</span>
-                                                )}
-                                              </div>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-
-                                  {/* Backlinks by Brand */}
-                                  <div className="text-sm font-medium text-foreground">
-                                    Backlinks by Brand ({domainDetails[domain.id].stats.totalBacklinks} total,
-                                    ${domainDetails[domain.id].stats.totalSpent.toFixed(2)} spent)
+                                    ))}
                                   </div>
-                                  {domainDetails[domain.id].backlinksByBrand.map(brandGroup => (
-                                    <div key={brandGroup.brand.id} className="bg-card rounded-lg p-4 border border-border">
-                                      <div className="flex items-center justify-between mb-2">
-                                        <span className="font-medium text-foreground">{brandGroup.brand.name}</span>
-                                        <span className="text-sm text-muted-foreground">
-                                          {brandGroup.backlinks.length} links · ${brandGroup.totalSpent.toFixed(2)} spent
-                                        </span>
-                                      </div>
-                                      <div className="space-y-2">
-                                        {brandGroup.backlinks.slice(0, 5).map(backlink => (
-                                          <div key={backlink.id} className="text-sm flex items-center gap-4 text-muted-foreground">
-                                            <a
-                                              href={backlink.referringPageUrl}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              className="text-primary hover:underline truncate max-w-md"
-                                            >
-                                              {backlink.referringPageUrl}
-                                            </a>
-                                            <span className="text-muted-foreground/50">→</span>
-                                            <span className="truncate max-w-xs">{backlink.targetUrl}</span>
-                                            {backlink.dr && (
-                                              <span className="badge-default">
-                                                DR {backlink.dr}
-                                              </span>
-                                            )}
-                                            {backlink.price && (
-                                              <span className="text-green-600">
-                                                ${backlink.price}
-                                              </span>
-                                            )}
+
+                                  {/* Price History */}
+                                  {domainDetails[domain.id].priceHistory?.length > 0 && (
+                                    <div className="pt-2 border-t border-border">
+                                      <div className="text-xs font-medium text-muted-foreground mb-2">Price History</div>
+                                      <div className="flex flex-wrap gap-2">
+                                        {domainDetails[domain.id].priceHistory.slice(0, 5).map((ph: PriceHistory) => (
+                                          <div key={ph.id} className="text-xs px-2 py-1 rounded bg-muted flex items-center gap-2">
+                                            <span className="text-green-600 dark:text-green-400 font-medium">${ph.price}</span>
+                                            <span className="text-muted-foreground">{new Date(ph.effectiveFrom).toLocaleDateString()}</span>
+                                            {ph.notes && <span className="text-muted-foreground/60">({ph.notes})</span>}
                                           </div>
                                         ))}
-                                        {brandGroup.backlinks.length > 5 && (
-                                          <div className="text-sm text-muted-foreground">
-                                            +{brandGroup.backlinks.length - 5} more backlinks
-                                          </div>
-                                        )}
                                       </div>
                                     </div>
-                                  ))}
+                                  )}
                                 </div>
                               ) : (
-                                <div className="text-center text-muted-foreground py-4">No details available</div>
+                                <div className="text-center text-muted-foreground py-8">No details available</div>
                               )}
                             </td>
                           </tr>
