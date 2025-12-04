@@ -20,13 +20,33 @@ export async function GET(request: NextRequest) {
           },
           take: 1,
         },
+        _count: {
+          select: {
+            rankings: true,
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',
       },
     })
 
-    return NextResponse.json(apps)
+    // Fetch unique keyword counts for each app
+    const appsWithStats = await Promise.all(
+      apps.map(async (app) => {
+        const uniqueKeywords = await prisma.appRanking.groupBy({
+          by: ['keyword'],
+          where: { appId: app.id },
+        })
+        return {
+          ...app,
+          uniqueKeywordCount: uniqueKeywords.length,
+          lastRankingDate: app.rankings[0]?.date || null,
+        }
+      })
+    )
+
+    return NextResponse.json(appsWithStats)
   } catch (error) {
     console.error('Error fetching apps:', error)
     return NextResponse.json(
