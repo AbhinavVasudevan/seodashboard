@@ -158,31 +158,34 @@ model RankTrackerHistory {
 }
 
 model Backlink {
-  id                   String         @id @default(cuid())
-  rootDomain           String
-  referringPageUrl     String
-  referringPageTitle   String?
-  dr                   Int?           // Domain Rating
-  ur                   Int?           // URL Rating
-  domainTraffic        Int?
-  targetUrl            String
-  anchor               String?
-  linkType             String?        // dofollow, nofollow, ugc, sponsored
-  content              String?        // text, image, form, frame
-  platform             String?
-  firstSeen            String?
-  lastSeen             String?
-  publishDate          DateTime?      // When the backlink was published
-  price                Float?
-  paypalInvoice        String?        // PayPal invoice URL or ID
-  articleCode          String?        // Article/reference code
-  remarks              String?
-  createdAt            DateTime       @default(now())
-  updatedAt            DateTime       @updatedAt
-  brandId              String
-  brand                Brand          @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  id                      String               @id @default(cuid())
+  rootDomain              String
+  referringPageUrl        String
+  referringPageTitle      String?
+  dr                      Int?                 // Domain Rating
+  ur                      Int?                 // URL Rating
+  domainTraffic           Int?
+  targetUrl               String
+  anchor                  String?
+  linkType                String?              // dofollow, nofollow, ugc, sponsored
+  content                 String?              // text, image, form, frame
+  platform                String?
+  firstSeen               String?
+  lastSeen                String?
+  publishDate             DateTime?            // When the backlink was published
+  price                   Float?
+  paypalInvoice           String?              // PayPal invoice URL or ID
+  articleCode             String?              // Article/reference code
+  remarks                 String?
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
+  brandId                 String
+  brand                   Brand                @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  linkDirectoryDomainId   String?
+  linkDirectoryDomain     LinkDirectoryDomain? @relation(fields: [linkDirectoryDomainId], references: [id])
 
   @@index([brandId])
+  @@index([linkDirectoryDomainId])
   @@map("backlinks")
 }
 
@@ -257,13 +260,13 @@ enum UserRole {
 }
 
 // ==========================================
-// BACKLINK DIRECTORY MODELS
+// LINK DIRECTORY - MASTER DOMAIN TABLE
 // ==========================================
 
-model BacklinkProspect {
+model LinkDirectoryDomain {
   id              String              @id @default(cuid())
-  referringPageUrl String             @unique
-  rootDomain      String
+  rootDomain      String              @unique
+  exampleUrl      String?             // One example URL from this domain
   domainRating    Int?
   domainTraffic   Int?
   nofollow        Boolean             @default(false)
@@ -272,15 +275,45 @@ model BacklinkProspect {
   contactEmail    String?
   contactFormUrl  String?
   remarks         String?
-  content         String?
-  status          ProspectStatus      @default(NOT_CONTACTED)
-  source          String?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
-  brandDeals      BrandBacklinkDeal[]
+
+  // Relations - which backlinks and prospects belong to this domain
+  backlinks       Backlink[]
+  prospects       BacklinkProspect[]
+
+  @@index([rootDomain])
+  @@map("link_directory_domains")
+}
+
+// ==========================================
+// BACKLINK DIRECTORY MODELS
+// ==========================================
+
+model BacklinkProspect {
+  id                      String               @id @default(cuid())
+  referringPageUrl        String               @unique
+  rootDomain              String
+  domainRating            Int?
+  domainTraffic           Int?
+  nofollow                Boolean              @default(false)
+  contactedOn             DateTime?
+  contactMethod           ContactMethod?
+  contactEmail            String?
+  contactFormUrl          String?
+  remarks                 String?
+  content                 String?
+  status                  ProspectStatus       @default(NOT_CONTACTED)
+  source                  String?
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
+  brandDeals              BrandBacklinkDeal[]
+  linkDirectoryDomainId   String?
+  linkDirectoryDomain     LinkDirectoryDomain? @relation(fields: [linkDirectoryDomainId], references: [id])
 
   @@index([status])
   @@index([rootDomain])
+  @@index([linkDirectoryDomainId])
   @@map("backlink_prospects")
 }
 

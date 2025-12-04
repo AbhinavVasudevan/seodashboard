@@ -33,6 +33,7 @@ const fullNavigation: NavItem[] = [
     name: 'Link Directory',
     href: '/backlink-directory',
     children: [
+      { name: 'All Domains', href: '/backlink-directory/domains' },
       { name: 'Prospects', href: '/backlink-directory/prospects' },
       { name: 'Import', href: '/backlink-directory/import' },
       { name: 'Brand Deals', href: '/backlink-directory/deals' },
