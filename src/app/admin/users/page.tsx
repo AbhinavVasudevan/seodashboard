@@ -1,7 +1,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { UserCircleIcon, PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, ShieldCheckIcon } from '@heroicons/react/24/outline'
+import {
+  UserCircleIcon,
+  PlusIcon,
+  PencilIcon,
+  TrashIcon,
+  MagnifyingGlassIcon,
+  ShieldCheckIcon,
+  UsersIcon
+} from '@heroicons/react/24/outline'
 
 interface User {
   id: string
@@ -20,6 +28,7 @@ export default function UsersManagementPage() {
   const [users, setUsers] = useState<User[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [formData, setFormData] = useState({
@@ -31,12 +40,14 @@ export default function UsersManagementPage() {
   })
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     fetchUsers()
   }, [])
 
   const fetchUsers = async () => {
+    setIsLoading(true)
     try {
       const response = await fetch('/api/users')
       const data = await response.json()
@@ -44,6 +55,8 @@ export default function UsersManagementPage() {
     } catch (error) {
       console.error('Error fetching users:', error)
       setError('Failed to fetch users')
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -92,7 +105,7 @@ export default function UsersManagementPage() {
     setFormData({
       email: user.email,
       name: user.name || '',
-      password: '', // Don't show password
+      password: '',
       role: user.role,
       isActive: user.isActive,
     })
@@ -158,19 +171,22 @@ export default function UsersManagementPage() {
     const matchesSearch = user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.name?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesRole = !roleFilter || user.role === roleFilter
-    return matchesSearch && matchesRole
+    const matchesStatus = !statusFilter ||
+      (statusFilter === 'active' && user.isActive) ||
+      (statusFilter === 'inactive' && !user.isActive)
+    return matchesSearch && matchesRole && matchesStatus
   })
 
-  const getRoleBadgeColor = (role: string) => {
+  const getRoleBadge = (role: string) => {
     switch (role) {
       case 'ADMIN':
-        return 'bg-purple-100 text-purple-800'
+        return 'badge-primary'
       case 'SEO':
-        return 'bg-blue-100 text-blue-800'
+        return 'badge-info'
       case 'WRITER':
-        return 'bg-green-100 text-green-800'
+        return 'badge-success'
       default:
-        return 'bg-gray-100 text-gray-800'
+        return 'badge-default'
     }
   }
 
@@ -180,206 +196,267 @@ export default function UsersManagementPage() {
     seo: users.filter(u => u.role === 'SEO').length,
     writers: users.filter(u => u.role === 'WRITER').length,
     active: users.filter(u => u.isActive).length,
+    inactive: users.filter(u => !u.isActive).length,
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-secondary-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-6">
-            <div className="flex items-center gap-3">
-              <ShieldCheckIcon className="h-8 w-8 text-primary-600" />
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
-                <p className="text-gray-600 mt-1">Manage users and permissions</p>
-              </div>
+    <div className="page-container">
+      <div className="page-content">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <ShieldCheckIcon className="h-6 w-6 text-primary" />
             </div>
-            <button
-              onClick={() => {
-                setShowAddForm(true)
-                setEditingUser(null)
-                resetForm()
-                setError('')
-                setSuccess('')
-              }}
-              className="btn-primary flex items-center gap-2"
-            >
-              <PlusIcon className="h-5 w-5" />
-              Add User
-            </button>
+            <div>
+              <h1 className="page-title">User Management</h1>
+              <p className="text-sm text-muted-foreground">Manage users and permissions</p>
+            </div>
           </div>
+          <button
+            onClick={() => {
+              setShowAddForm(true)
+              setEditingUser(null)
+              resetForm()
+              setError('')
+              setSuccess('')
+            }}
+            className="btn-primary"
+          >
+            <PlusIcon className="h-4 w-4" />
+            Add User
+          </button>
         </div>
-      </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Alerts */}
         {error && (
-          <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+          <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg text-sm">
             {error}
           </div>
         )}
         {success && (
-          <div className="mb-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">
+          <div className="mb-4 p-3 bg-green-500/10 border border-green-500/20 text-green-600 dark:text-green-400 rounded-lg text-sm">
             {success}
           </div>
         )}
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
-          <div className="card">
-            <div className="text-sm font-medium text-gray-600">Total Users</div>
-            <div className="text-2xl font-semibold text-gray-900 mt-1">{stats.total}</div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+          <div className="stat-card">
+            <div className="flex items-center gap-3">
+              <div className="bg-gray-100 dark:bg-gray-800 p-2 rounded-lg">
+                <UsersIcon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+              </div>
+              <div>
+                <div className="stat-label">Total</div>
+                <div className="stat-value">{stats.total}</div>
+              </div>
+            </div>
           </div>
-          <div className="card">
-            <div className="text-sm font-medium text-gray-600">Admins</div>
-            <div className="text-2xl font-semibold text-purple-600 mt-1">{stats.admins}</div>
+          <div className="stat-card">
+            <div className="flex items-center gap-3">
+              <div className="bg-purple-100 dark:bg-purple-900/30 p-2 rounded-lg">
+                <ShieldCheckIcon className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div>
+                <div className="stat-label">Admins</div>
+                <div className="stat-value text-purple-600 dark:text-purple-400">{stats.admins}</div>
+              </div>
+            </div>
           </div>
-          <div className="card">
-            <div className="text-sm font-medium text-gray-600">SEO Team</div>
-            <div className="text-2xl font-semibold text-blue-600 mt-1">{stats.seo}</div>
+          <div className="stat-card">
+            <div className="flex items-center gap-3">
+              <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg">
+                <UserCircleIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <div className="stat-label">SEO Team</div>
+                <div className="stat-value text-blue-600 dark:text-blue-400">{stats.seo}</div>
+              </div>
+            </div>
           </div>
-          <div className="card">
-            <div className="text-sm font-medium text-gray-600">Writers</div>
-            <div className="text-2xl font-semibold text-green-600 mt-1">{stats.writers}</div>
+          <div className="stat-card">
+            <div className="flex items-center gap-3">
+              <div className="bg-green-100 dark:bg-green-900/30 p-2 rounded-lg">
+                <UserCircleIcon className="h-5 w-5 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <div className="stat-label">Writers</div>
+                <div className="stat-value text-green-600 dark:text-green-400">{stats.writers}</div>
+              </div>
+            </div>
           </div>
-          <div className="card">
-            <div className="text-sm font-medium text-gray-600">Active</div>
-            <div className="text-2xl font-semibold text-gray-900 mt-1">{stats.active}</div>
+          <div className="stat-card">
+            <div className="flex items-center gap-3">
+              <div className="bg-emerald-100 dark:bg-emerald-900/30 p-2 rounded-lg">
+                <UserCircleIcon className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div>
+                <div className="stat-label">Active</div>
+                <div className="stat-value text-emerald-600 dark:text-emerald-400">{stats.active}</div>
+              </div>
+            </div>
+          </div>
+          <div className="stat-card">
+            <div className="flex items-center gap-3">
+              <div className="bg-red-100 dark:bg-red-900/30 p-2 rounded-lg">
+                <UserCircleIcon className="h-5 w-5 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <div className="stat-label">Inactive</div>
+                <div className="stat-value text-red-600 dark:text-red-400">{stats.inactive}</div>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="relative">
-            <MagnifyingGlassIcon className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+        <div className="filter-bar">
+          <div className="relative flex-1 max-w-sm">
+            <MagnifyingGlassIcon className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
               placeholder="Search users..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="input-field pl-10"
+              className="input-field pl-9"
             />
           </div>
           <select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
-            className="input-field"
+            className="input-field w-auto min-w-[140px]"
           >
             <option value="">All Roles</option>
             <option value="ADMIN">Admin</option>
             <option value="SEO">SEO</option>
             <option value="WRITER">Writer</option>
           </select>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="input-field w-auto min-w-[140px]"
+          >
+            <option value="">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
         </div>
 
         {/* Users Table */}
-        <div className="card">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    User
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Email
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Role
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Brands
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Created
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredUsers.length === 0 ? (
+        <div className="table-container">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="spinner-md text-primary"></div>
+            </div>
+          ) : (
+            <div className="table-wrapper scrollbar-thin">
+              <table className="data-table">
+                <thead>
                   <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
-                      No users found. Click "Add User" to create your first user.
-                    </td>
+                    <th>User</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Brands</th>
+                    <th>Created</th>
+                    <th>Actions</th>
                   </tr>
-                ) : (
-                  filteredUsers.map((user) => (
-                    <tr key={user.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <UserCircleIcon className="h-8 w-8 text-gray-400 mr-3" />
-                          <div className="text-sm font-medium text-gray-900">
-                            {user.name || 'N/A'}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {user.email}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`status-badge ${getRoleBadgeColor(user.role)}`}>
-                          {user.role}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <button
-                          onClick={() => toggleUserStatus(user)}
-                          className={`status-badge cursor-pointer ${
-                            user.isActive ? 'status-success' : 'status-error'
-                          }`}
-                        >
-                          {user.isActive ? 'Active' : 'Inactive'}
-                        </button>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {user._count?.brands || 0}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(user.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleEdit(user)}
-                            className="text-indigo-600 hover:text-indigo-900"
-                            title="Edit"
-                          >
-                            <PencilIcon className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(user.id)}
-                            className="text-red-600 hover:text-red-900"
-                            title="Delete"
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </button>
+                </thead>
+                <tbody>
+                  {filteredUsers.length === 0 ? (
+                    <tr>
+                      <td colSpan={7}>
+                        <div className="empty-state">
+                          <UsersIcon className="empty-state-icon" />
+                          <p className="empty-state-title">No users found</p>
+                          <p className="empty-state-description">
+                            {searchTerm || roleFilter || statusFilter
+                              ? 'Try adjusting your filters'
+                              : 'Click "Add User" to create your first user'}
+                          </p>
                         </div>
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ) : (
+                    filteredUsers.map((user) => (
+                      <tr key={user.id}>
+                        <td className="whitespace-nowrap">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                              user.role === 'ADMIN'
+                                ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
+                                : user.role === 'SEO'
+                                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                                : 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                            }`}>
+                              {(user.name || user.email).charAt(0).toUpperCase()}
+                            </div>
+                            <span className="cell-primary">{user.name || 'N/A'}</span>
+                          </div>
+                        </td>
+                        <td className="whitespace-nowrap">
+                          {user.email}
+                        </td>
+                        <td className="whitespace-nowrap">
+                          <span className={getRoleBadge(user.role)}>
+                            {user.role}
+                          </span>
+                        </td>
+                        <td className="whitespace-nowrap">
+                          <button
+                            onClick={() => toggleUserStatus(user)}
+                            className={`${
+                              user.isActive ? 'badge-success' : 'badge-destructive'
+                            } cursor-pointer hover:opacity-80 transition-opacity`}
+                            title={`Click to ${user.isActive ? 'deactivate' : 'activate'} user`}
+                          >
+                            {user.isActive ? 'Active' : 'Inactive'}
+                          </button>
+                        </td>
+                        <td className="whitespace-nowrap cell-secondary">
+                          {user._count?.brands || 0}
+                        </td>
+                        <td className="whitespace-nowrap cell-secondary">
+                          {new Date(user.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="whitespace-nowrap">
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleEdit(user)}
+                              className="action-btn"
+                              title="Edit user"
+                            >
+                              <PencilIcon className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(user.id)}
+                              className="action-btn-danger"
+                              title="Delete user"
+                            >
+                              <TrashIcon className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* Add/Edit User Modal */}
         {showAddForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-card border border-border rounded-xl p-6 w-full max-w-md shadow-xl">
               <h3 className="text-lg font-semibold mb-4">
                 {editingUser ? 'Edit User' : 'Add New User'}
               </h3>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-foreground mb-2">
                     Email *
                   </label>
                   <input
@@ -393,7 +470,7 @@ export default function UsersManagementPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-foreground mb-2">
                     Name
                   </label>
                   <input
@@ -406,7 +483,7 @@ export default function UsersManagementPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-foreground mb-2">
                     Password {editingUser ? '(leave blank to keep current)' : '*'}
                   </label>
                   <input
@@ -417,13 +494,13 @@ export default function UsersManagementPage() {
                     required={!editingUser}
                     placeholder="••••••••"
                   />
-                  <p className="mt-1 text-xs text-red-600">
-                    ⚠️ Note: Passwords are currently stored in plain text. Hash them in production!
+                  <p className="mt-1.5 text-xs text-amber-600 dark:text-amber-400">
+                    Note: Passwords are currently stored in plain text. Hash them in production!
                   </p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-foreground mb-2">
                     Role *
                   </label>
                   <select
@@ -436,27 +513,27 @@ export default function UsersManagementPage() {
                     <option value="SEO">SEO</option>
                     <option value="ADMIN">Admin</option>
                   </select>
-                  <div className="mt-2 text-xs text-gray-600 space-y-1">
-                    <p><strong>Admin:</strong> Full access to all features</p>
-                    <p><strong>SEO:</strong> Manage keywords, rankings, backlinks</p>
-                    <p><strong>Writer:</strong> Manage articles only</p>
+                  <div className="mt-2 text-xs text-muted-foreground space-y-1">
+                    <p><span className="font-medium text-foreground">Admin:</span> Full access to all features</p>
+                    <p><span className="font-medium text-foreground">SEO:</span> Manage keywords, rankings, backlinks</p>
+                    <p><span className="font-medium text-foreground">Writer:</span> Manage articles only</p>
                   </div>
                 </div>
 
-                <div className="flex items-center">
+                <div className="flex items-center gap-2">
                   <input
                     type="checkbox"
                     id="isActive"
                     checked={formData.isActive}
                     onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
                   />
-                  <label htmlFor="isActive" className="ml-2 block text-sm text-gray-900">
+                  <label htmlFor="isActive" className="text-sm text-foreground">
                     Active User
                   </label>
                 </div>
 
-                <div className="flex gap-3 mt-6 pt-4 border-t">
+                <div className="flex gap-3 mt-6 pt-4 border-t border-border">
                   <button
                     type="button"
                     onClick={() => {
@@ -480,7 +557,7 @@ export default function UsersManagementPage() {
             </div>
           </div>
         )}
-      </main>
+      </div>
     </div>
   )
 }
