@@ -11,9 +11,15 @@ import {
   ArrowUpTrayIcon,
   DocumentArrowDownIcon,
   MagnifyingGlassIcon,
-  XMarkIcon
+  XMarkIcon,
+  NoSymbolIcon,
+  ShieldExclamationIcon,
+  GiftIcon,
+  TagIcon
 } from '@heroicons/react/24/outline'
 import { toast } from 'sonner'
+
+type DomainCategory = 'SPAM' | 'FREE_AFFILIATE' | 'FREE_LINK' | null
 
 interface Backlink {
   id: string
@@ -33,6 +39,13 @@ interface Backlink {
   price: number | null
   remarks: string | null
   createdAt: string
+  category?: DomainCategory
+}
+
+interface HiddenCounts {
+  spam: number
+  freeAffiliate: number
+  total: number
 }
 
 interface Brand {
@@ -86,6 +99,10 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
   const [totalSpent, setTotalSpent] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [hiddenCounts, setHiddenCounts] = useState<HiddenCounts>({ spam: 0, freeAffiliate: 0, total: 0 })
+  const [showFreeAffiliates, setShowFreeAffiliates] = useState(false)
+  const [isBlocking, setIsBlocking] = useState<string | null>(null)
+  const [showCategoryModal, setShowCategoryModal] = useState<{ domain: string } | null>(null)
   const limit = 50
 
   // Debounce search input
@@ -103,7 +120,7 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
 
   useEffect(() => {
     fetchBacklinks()
-  }, [resolvedParams.id, page, debouncedSearch])
+  }, [resolvedParams.id, page, debouncedSearch, showFreeAffiliates])
 
   const fetchBrand = async () => {
     try {
@@ -121,7 +138,8 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
     setIsLoading(true)
     try {
       const searchParam = debouncedSearch ? `&search=${encodeURIComponent(debouncedSearch)}` : ''
-      const response = await fetch(`/api/brands/${resolvedParams.id}/backlinks?page=${page}&limit=${limit}${searchParam}`)
+      const affiliateParam = showFreeAffiliates ? '&showFreeAffiliates=true' : ''
+      const response = await fetch(`/api/brands/${resolvedParams.id}/backlinks?page=${page}&limit=${limit}${searchParam}${affiliateParam}`)
       if (response.ok) {
         const data = await response.json()
         setBacklinks(data.backlinks)
@@ -129,6 +147,7 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
         setTotalPages(data.totalPages)
         setAvgDR(data.avgDR)
         setTotalSpent(data.totalSpent)
+        setHiddenCounts(data.hiddenCounts || { spam: 0, freeAffiliate: 0, total: 0 })
       }
     } catch (error) {
       console.error('Error fetching backlinks:', error)
@@ -212,6 +231,42 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
       }
     } catch (error) {
       console.error('Error deleting backlink:', error)
+    }
+  }
+
+  const handleCategorizeDomain = async (domain: string, type: DomainCategory, reason?: string) => {
+    if (!type) return
+
+    setIsBlocking(domain)
+    try {
+      const response = await fetch('/api/blocked-domains', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          domain,
+          type,
+          reason: reason || null
+        })
+      })
+
+      if (response.ok) {
+        const typeLabels = {
+          SPAM: 'marked as spam',
+          FREE_AFFILIATE: 'marked as free affiliate',
+          FREE_LINK: 'marked as free link'
+        }
+        toast.success(`"${domain}" ${typeLabels[type]}`)
+        setShowCategoryModal(null)
+        fetchBacklinks()
+      } else {
+        const err = await response.json()
+        toast.error(err.error || 'Failed to categorize domain')
+      }
+    } catch (error) {
+      console.error('Error categorizing domain:', error)
+      toast.error('Failed to categorize domain')
+    } finally {
+      setIsBlocking(null)
     }
   }
 
@@ -378,7 +433,7 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
 
       <div className="page-content">
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
           <div className="stat-card">
             <div className="stat-value text-foreground">{total.toLocaleString()}</div>
             <div className="stat-label">Total Backlinks</div>
@@ -391,6 +446,27 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
             <div className="stat-value text-green-600">${totalSpent.toLocaleString()}</div>
             <div className="stat-label">Total Spent</div>
           </div>
+          <Link href="/admin/blocked-domains" className="stat-card hover:shadow-md transition-shadow group">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="stat-value text-red-500">{hiddenCounts.spam}</div>
+                <div className="stat-label">Spam Hidden</div>
+              </div>
+              <NoSymbolIcon className="h-5 w-5 text-red-400 opacity-50 group-hover:opacity-100 transition-opacity" />
+            </div>
+          </Link>
+          <button
+            onClick={() => setShowFreeAffiliates(!showFreeAffiliates)}
+            className={`stat-card hover:shadow-md transition-all text-left ${showFreeAffiliates ? 'ring-2 ring-purple-500' : ''}`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="stat-value text-purple-500">{hiddenCounts.freeAffiliate}</div>
+                <div className="stat-label">{showFreeAffiliates ? 'Free Affiliates (Shown)' : 'Free Affiliates'}</div>
+              </div>
+              <GiftIcon className={`h-5 w-5 text-purple-400 transition-opacity ${showFreeAffiliates ? 'opacity-100' : 'opacity-50'}`} />
+            </div>
+          </button>
         </div>
 
         {/* Search and Actions */}
@@ -478,7 +554,15 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
                     {backlinks.map(backlink => (
                       <tr key={backlink.id}>
                         <td className="cell-primary whitespace-nowrap">
-                          {backlink.rootDomain}
+                          <div className="flex items-center gap-2">
+                            {backlink.rootDomain}
+                            {backlink.category === 'FREE_LINK' && (
+                              <span className="badge-success text-[10px] px-1.5 py-0.5">Free</span>
+                            )}
+                            {backlink.category === 'FREE_AFFILIATE' && (
+                              <span className="badge-purple text-[10px] px-1.5 py-0.5">Affiliate</span>
+                            )}
+                          </div>
                         </td>
                         <td className={`whitespace-nowrap ${getDRColor(backlink.dr)}`}>
                           {backlink.dr || '-'}
@@ -530,6 +614,13 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
                         </td>
                         <td className="whitespace-nowrap">
                           <div className="flex gap-1">
+                            <button
+                              onClick={() => setShowCategoryModal({ domain: backlink.rootDomain })}
+                              className="action-btn text-purple-500 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                              title={`Categorize "${backlink.rootDomain}"`}
+                            >
+                              <TagIcon className="h-4 w-4" />
+                            </button>
                             <button
                               onClick={() => handleEdit(backlink)}
                               className="action-btn"
@@ -787,6 +878,84 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
                   `Import ${csvData.length} Backlinks`
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Category Selection Modal */}
+      {showCategoryModal && (
+        <div className="modal-overlay">
+          <div className="modal-content max-w-md">
+            <div className="modal-header">
+              <h3 className="modal-title">Categorize Domain</h3>
+              <button
+                onClick={() => setShowCategoryModal(null)}
+                className="action-btn"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="modal-body">
+              <p className="text-sm text-muted-foreground mb-4">
+                Select a category for <strong className="text-foreground">{showCategoryModal.domain}</strong>
+              </p>
+              <div className="space-y-3">
+                <button
+                  onClick={() => handleCategorizeDomain(showCategoryModal.domain, 'SPAM')}
+                  disabled={isBlocking === showCategoryModal.domain}
+                  className="w-full p-4 rounded-lg border border-border hover:border-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all text-left group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg group-hover:bg-red-200 dark:group-hover:bg-red-900/50 transition-colors">
+                      <NoSymbolIcon className="h-5 w-5 text-red-600 dark:text-red-400" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">Spam / Low Quality</p>
+                      <p className="text-xs text-muted-foreground">Black hat SEO, link farms, PBNs - always hidden</p>
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => handleCategorizeDomain(showCategoryModal.domain, 'FREE_AFFILIATE')}
+                  disabled={isBlocking === showCategoryModal.domain}
+                  className="w-full p-4 rounded-lg border border-border hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all text-left group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg group-hover:bg-purple-200 dark:group-hover:bg-purple-900/50 transition-colors">
+                      <GiftIcon className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">Free Affiliate Link</p>
+                      <p className="text-xs text-muted-foreground">Affiliate sites linking for commission (no payment)</p>
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => handleCategorizeDomain(showCategoryModal.domain, 'FREE_LINK')}
+                  disabled={isBlocking === showCategoryModal.domain}
+                  className="w-full p-4 rounded-lg border border-border hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all text-left group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg group-hover:bg-green-200 dark:group-hover:bg-green-900/50 transition-colors">
+                      <LinkIcon className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">Free / Organic Link</p>
+                      <p className="text-xs text-muted-foreground">Natural editorial links - always visible, tagged as free</p>
+                    </div>
+                  </div>
+                </button>
+              </div>
+
+              {isBlocking === showCategoryModal.domain && (
+                <div className="mt-4 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                  <span className="spinner-sm" />
+                  Saving...
+                </div>
+              )}
             </div>
           </div>
         </div>

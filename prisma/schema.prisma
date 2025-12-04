@@ -9,17 +9,18 @@ datasource db {
 }
 
 model User {
-  id                String    @id @default(cuid())
-  email             String    @unique
+  id                String          @id @default(cuid())
+  email             String          @unique
   name              String?
-  password          String    @default("")
-  role              UserRole  @default(WRITER)
-  isActive          Boolean   @default(true)
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  requestedArticles Article[] @relation("RequestedArticles")
-  writtenArticles   Article[] @relation("WrittenArticles")
+  password          String          @default("")
+  role              UserRole        @default(WRITER)
+  isActive          Boolean         @default(true)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  requestedArticles Article[]       @relation("RequestedArticles")
+  writtenArticles   Article[]       @relation("WrittenArticles")
   brands            Brand[]
+  blockedDomains    BlockedDomain[]
 
   @@map("users")
 }
@@ -360,4 +361,28 @@ enum DealStatus {
   LIVE
   EXPIRED
   CANCELLED
+}
+
+// ==========================================
+// DOMAIN CATEGORIZATION (Spam, Free Links, etc.)
+// ==========================================
+
+model BlockedDomain {
+  id          String            @id @default(cuid())
+  domain      String            @unique  // Root domain (e.g., "v9181004.xyz")
+  type        BlockedDomainType @default(SPAM)
+  reason      String?                    // Additional notes
+  blockedById String?
+  blockedBy   User?             @relation(fields: [blockedById], references: [id])
+  createdAt   DateTime          @default(now())
+
+  @@index([domain])
+  @@index([type])
+  @@map("blocked_domains")
+}
+
+enum BlockedDomainType {
+  SPAM           // Black hat SEO, link farms, PBNs - always hidden
+  FREE_AFFILIATE // Affiliate sites linking for commission without payment - can toggle
+  FREE_LINK      // Organic/natural links - visible but tagged
 }

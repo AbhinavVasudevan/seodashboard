@@ -13,11 +13,41 @@ export async function GET(
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '50')
     const search = searchParams.get('search') || ''
+    const showFreeAffiliates = searchParams.get('showFreeAffiliates') === 'true'
     const skip = (page - 1) * limit
 
-    // Build where clause with search
+    // Get categorized domains
+    const categorizedDomains = await prisma.blockedDomain.findMany({
+      select: { domain: true, type: true }
+    })
+
+    // Create maps for each type
+    const spamDomains = new Set<string>()
+    const freeAffiliateDomains = new Set<string>()
+    const freeLinkDomains = new Set<string>()
+
+    categorizedDomains.forEach(d => {
+      if (d.type === 'SPAM') spamDomains.add(d.domain)
+      else if (d.type === 'FREE_AFFILIATE') freeAffiliateDomains.add(d.domain)
+      else if (d.type === 'FREE_LINK') freeLinkDomains.add(d.domain)
+    })
+
+    // Build list of domains to exclude
+    // Always exclude SPAM, optionally exclude FREE_AFFILIATE
+    const excludedDomains = Array.from(spamDomains)
+    if (!showFreeAffiliates) {
+      excludedDomains.push(...Array.from(freeAffiliateDomains))
+    }
+
+    // Build where clause with search and blocked domain filter
     const where = {
       brandId: id,
+      // Exclude spam (and optionally free affiliates)
+      ...(excludedDomains.length > 0 && {
+        NOT: {
+          rootDomain: { in: excludedDomains }
+        }
+      }),
       ...(search && {
         OR: [
           { rootDomain: { contains: search, mode: 'insensitive' as const } },
@@ -62,13 +92,42 @@ export async function GET(
       })
     ])
 
+    // Add category tag to each backlink (free link or free affiliate if showing)
+    const backlinksWithTags = backlinks.map(bl => ({
+      ...bl,
+      category: freeLinkDomains.has(bl.rootDomain)
+        ? 'FREE_LINK'
+        : freeAffiliateDomains.has(bl.rootDomain)
+        ? 'FREE_AFFILIATE'
+        : null
+    }))
+
+    // Count hidden backlinks by type
+    const [spamCount, freeAffiliateCount] = await Promise.all([
+      spamDomains.size > 0
+        ? prisma.backlink.count({
+            where: { brandId: id, rootDomain: { in: Array.from(spamDomains) } }
+          })
+        : 0,
+      freeAffiliateDomains.size > 0
+        ? prisma.backlink.count({
+            where: { brandId: id, rootDomain: { in: Array.from(freeAffiliateDomains) } }
+          })
+        : 0
+    ])
+
     return NextResponse.json({
-      backlinks,
+      backlinks: backlinksWithTags,
       total,
       page,
       totalPages: Math.ceil(total / limit),
       avgDR: Math.round(stats._avg.dr || 0),
-      totalSpent: stats._sum.price || 0
+      totalSpent: stats._sum.price || 0,
+      hiddenCounts: {
+        spam: spamCount,
+        freeAffiliate: freeAffiliateCount,
+        total: spamCount + (showFreeAffiliates ? 0 : freeAffiliateCount)
+      }
     })
   } catch (error) {
     console.error('Error fetching backlinks:', error)
