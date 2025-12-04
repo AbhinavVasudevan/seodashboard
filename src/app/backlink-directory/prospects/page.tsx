@@ -1,7 +1,19 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { MagnifyingGlassIcon, PlusIcon, PencilIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import {
+  MagnifyingGlassIcon,
+  PlusIcon,
+  PencilIcon,
+  TrashIcon,
+  XMarkIcon,
+  EnvelopeIcon,
+  PhoneIcon,
+  ArrowPathIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  ExclamationCircleIcon
+} from '@heroicons/react/24/outline'
 
 interface Prospect {
   id: string
@@ -18,6 +30,8 @@ interface Prospect {
   content: string | null
   status: string
   source: string | null
+  createdAt: string
+  updatedAt: string
   brandDeals: Array<{
     id: string
     brand: { id: string; name: string }
@@ -25,13 +39,13 @@ interface Prospect {
 }
 
 const STATUS_OPTIONS = [
-  { value: 'NOT_CONTACTED', label: 'Not Contacted', color: 'bg-gray-100 text-gray-800' },
-  { value: 'CONTACTED', label: 'Contacted', color: 'bg-blue-100 text-blue-800' },
-  { value: 'RESPONDED', label: 'Responded', color: 'bg-cyan-100 text-cyan-800' },
-  { value: 'NEGOTIATING', label: 'Negotiating', color: 'bg-yellow-100 text-yellow-800' },
-  { value: 'DEAL_LOCKED', label: 'Deal Locked', color: 'bg-green-100 text-green-800' },
-  { value: 'REJECTED', label: 'Rejected', color: 'bg-red-100 text-red-800' },
-  { value: 'NO_RESPONSE', label: 'No Response', color: 'bg-orange-100 text-orange-800' },
+  { value: 'NOT_CONTACTED', label: 'Not Contacted', color: 'bg-gray-100 text-gray-800', icon: ClockIcon },
+  { value: 'CONTACTED', label: 'Contacted', color: 'bg-blue-100 text-blue-800', icon: EnvelopeIcon },
+  { value: 'RESPONDED', label: 'Responded', color: 'bg-cyan-100 text-cyan-800', icon: ArrowPathIcon },
+  { value: 'NEGOTIATING', label: 'Negotiating', color: 'bg-yellow-100 text-yellow-800', icon: PhoneIcon },
+  { value: 'DEAL_LOCKED', label: 'Deal Locked', color: 'bg-green-100 text-green-800', icon: CheckCircleIcon },
+  { value: 'REJECTED', label: 'Rejected', color: 'bg-red-100 text-red-800', icon: ExclamationCircleIcon },
+  { value: 'NO_RESPONSE', label: 'No Response', color: 'bg-orange-100 text-orange-800', icon: ExclamationCircleIcon },
 ]
 
 const CONTACT_METHODS = [
@@ -45,6 +59,7 @@ export default function ProspectsPage() {
   const [prospects, setProspects] = useState<Prospect[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [sourceFilter, setSourceFilter] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editingProspect, setEditingProspect] = useState<Prospect | null>(null)
@@ -63,6 +78,9 @@ export default function ProspectsPage() {
     status: 'NOT_CONTACTED',
     source: 'manual'
   })
+
+  // Get unique sources for filter
+  const uniqueSources = Array.from(new Set(prospects.map(p => p.source).filter(Boolean)))
 
   useEffect(() => {
     fetchProspects()
@@ -111,6 +129,32 @@ export default function ProspectsPage() {
     } catch (error) {
       console.error('Error saving prospect:', error)
       alert('Failed to save prospect')
+    }
+  }
+
+  const handleQuickStatusUpdate = async (id: string, newStatus: string) => {
+    try {
+      const updateData: Record<string, unknown> = { id, status: newStatus }
+
+      // Auto-set contacted date when marking as contacted
+      if (newStatus === 'CONTACTED') {
+        const prospect = prospects.find(p => p.id === id)
+        if (!prospect?.contactedOn) {
+          updateData.contactedOn = new Date().toISOString().split('T')[0]
+        }
+      }
+
+      const response = await fetch('/api/backlink-prospects', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData)
+      })
+
+      if (response.ok) {
+        fetchProspects()
+      }
+    } catch (error) {
+      console.error('Error updating status:', error)
     }
   }
 
@@ -172,7 +216,7 @@ export default function ProspectsPage() {
   const extractDomain = (url: string) => {
     try {
       const parsed = new URL(url)
-      setFormData(prev => ({ ...prev, rootDomain: parsed.hostname }))
+      setFormData(prev => ({ ...prev, rootDomain: parsed.hostname.replace(/^www\./, '') }))
     } catch {
       // Invalid URL
     }
@@ -186,11 +230,24 @@ export default function ProspectsPage() {
     return STATUS_OPTIONS.find(s => s.value === status)?.label || status
   }
 
-  const filteredProspects = prospects.filter(p =>
-    p.referringPageUrl.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.rootDomain.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.contactEmail?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  // Calculate days since contacted
+  const getDaysSinceContacted = (contactedOn: string | null) => {
+    if (!contactedOn) return null
+    const contacted = new Date(contactedOn)
+    const now = new Date()
+    const diffTime = Math.abs(now.getTime() - contacted.getTime())
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  }
+
+  // Filter prospects
+  const filteredProspects = prospects.filter(p => {
+    const matchesSearch =
+      p.referringPageUrl.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.rootDomain.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.contactEmail?.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSource = !sourceFilter || p.source === sourceFilter
+    return matchesSearch && matchesSource
+  })
 
   // Stats
   const stats = {
@@ -199,6 +256,22 @@ export default function ProspectsPage() {
     contacted: prospects.filter(p => ['CONTACTED', 'RESPONDED', 'NEGOTIATING'].includes(p.status)).length,
     locked: prospects.filter(p => p.status === 'DEAL_LOCKED').length,
     rejected: prospects.filter(p => ['REJECTED', 'NO_RESPONSE'].includes(p.status)).length,
+  }
+
+  // Get next status options based on current status
+  const getNextStatuses = (currentStatus: string) => {
+    switch (currentStatus) {
+      case 'NOT_CONTACTED':
+        return ['CONTACTED']
+      case 'CONTACTED':
+        return ['RESPONDED', 'NO_RESPONSE']
+      case 'RESPONDED':
+        return ['NEGOTIATING', 'REJECTED']
+      case 'NEGOTIATING':
+        return ['DEAL_LOCKED', 'REJECTED']
+      default:
+        return []
+    }
   }
 
   return (
@@ -224,30 +297,45 @@ export default function ProspectsPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-          <div className="card">
+          <div
+            className={`card cursor-pointer hover:ring-2 hover:ring-gray-400 ${statusFilter === '' ? 'ring-2 ring-gray-400' : ''}`}
+            onClick={() => setStatusFilter('')}
+          >
             <div className="text-sm font-medium text-gray-600">Total</div>
             <div className="text-2xl font-semibold text-gray-900">{stats.total}</div>
           </div>
-          <div className="card">
+          <div
+            className={`card cursor-pointer hover:ring-2 hover:ring-gray-400 ${statusFilter === 'NOT_CONTACTED' ? 'ring-2 ring-gray-400' : ''}`}
+            onClick={() => setStatusFilter('NOT_CONTACTED')}
+          >
             <div className="text-sm font-medium text-gray-600">Not Contacted</div>
             <div className="text-2xl font-semibold text-gray-500">{stats.notContacted}</div>
           </div>
-          <div className="card">
+          <div
+            className={`card cursor-pointer hover:ring-2 hover:ring-blue-400`}
+            onClick={() => setStatusFilter('CONTACTED')}
+          >
             <div className="text-sm font-medium text-gray-600">In Progress</div>
             <div className="text-2xl font-semibold text-blue-600">{stats.contacted}</div>
           </div>
-          <div className="card">
+          <div
+            className={`card cursor-pointer hover:ring-2 hover:ring-green-400 ${statusFilter === 'DEAL_LOCKED' ? 'ring-2 ring-green-400' : ''}`}
+            onClick={() => setStatusFilter('DEAL_LOCKED')}
+          >
             <div className="text-sm font-medium text-gray-600">Deal Locked</div>
             <div className="text-2xl font-semibold text-green-600">{stats.locked}</div>
           </div>
-          <div className="card">
+          <div
+            className={`card cursor-pointer hover:ring-2 hover:ring-red-400`}
+            onClick={() => setStatusFilter('REJECTED')}
+          >
             <div className="text-sm font-medium text-gray-600">Rejected/No Response</div>
             <div className="text-2xl font-semibold text-red-600">{stats.rejected}</div>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="relative">
             <MagnifyingGlassIcon className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
             <input
@@ -268,6 +356,16 @@ export default function ProspectsPage() {
               <option key={s.value} value={s.value}>{s.label}</option>
             ))}
           </select>
+          <select
+            value={sourceFilter}
+            onChange={(e) => setSourceFilter(e.target.value)}
+            className="input-field"
+          >
+            <option value="">All Sources</option>
+            {uniqueSources.map(source => (
+              <option key={source} value={source || ''}>{source || 'Unknown'}</option>
+            ))}
+          </select>
         </div>
 
         {/* Table */}
@@ -281,8 +379,8 @@ export default function ProspectsPage() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Traffic</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contacted</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Method</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Deals</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Source</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quick Actions</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
@@ -296,75 +394,113 @@ export default function ProspectsPage() {
                 ) : filteredProspects.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
-                      No prospects found
+                      <div className="flex flex-col items-center gap-2">
+                        <ExclamationCircleIcon className="h-12 w-12 text-gray-300" />
+                        <p>No prospects found</p>
+                        <p className="text-sm">Import competitor backlinks to find new opportunities</p>
+                      </div>
                     </td>
                   </tr>
                 ) : (
-                  filteredProspects.map(prospect => (
-                    <tr key={prospect.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-4">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{prospect.rootDomain}</div>
-                          <a
-                            href={prospect.referringPageUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-blue-600 hover:text-blue-800 truncate block max-w-xs"
-                          >
-                            {prospect.referringPageUrl}
-                          </a>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <span className={`font-medium ${prospect.domainRating && prospect.domainRating >= 50 ? 'text-green-600' : 'text-gray-900'}`}>
-                          {prospect.domainRating || '-'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {prospect.domainTraffic ? prospect.domainTraffic.toLocaleString() : '-'}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(prospect.status)}`}>
-                          {getStatusLabel(prospect.status)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {prospect.contactedOn ? new Date(prospect.contactedOn).toLocaleDateString() : '-'}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {prospect.contactMethod?.replace('_', ' ') || '-'}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        {prospect.brandDeals.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
-                            {prospect.brandDeals.map(deal => (
-                              <span key={deal.id} className="px-2 py-0.5 text-xs bg-purple-100 text-purple-800 rounded">
-                                {deal.brand.name}
-                              </span>
+                  filteredProspects.map(prospect => {
+                    const daysSince = getDaysSinceContacted(prospect.contactedOn)
+                    const needsFollowup = prospect.status === 'CONTACTED' && daysSince !== null && daysSince > 7
+
+                    return (
+                      <tr key={prospect.id} className={`hover:bg-gray-50 ${needsFollowup ? 'bg-orange-50' : ''}`}>
+                        <td className="px-4 py-4">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{prospect.rootDomain}</div>
+                            <a
+                              href={prospect.referringPageUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-600 hover:text-blue-800 truncate block max-w-xs"
+                            >
+                              {prospect.referringPageUrl}
+                            </a>
+                            {prospect.contactEmail && (
+                              <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                                <EnvelopeIcon className="h-3 w-3" />
+                                {prospect.contactEmail}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <span className={`font-medium ${prospect.domainRating && prospect.domainRating >= 50 ? 'text-green-600' : 'text-gray-900'}`}>
+                            {prospect.domainRating || '-'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {prospect.domainTraffic ? prospect.domainTraffic.toLocaleString() : '-'}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(prospect.status)}`}>
+                            {getStatusLabel(prospect.status)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm">
+                          {prospect.contactedOn ? (
+                            <div>
+                              <div className="text-gray-900">
+                                {new Date(prospect.contactedOn).toLocaleDateString()}
+                              </div>
+                              {daysSince !== null && (
+                                <div className={`text-xs ${needsFollowup ? 'text-orange-600 font-medium' : 'text-gray-500'}`}>
+                                  {daysSince === 0 ? 'Today' : `${daysSince} days ago`}
+                                  {needsFollowup && ' - Follow up!'}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          {prospect.source && (
+                            <span className="px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded">
+                              {prospect.source.replace('ahrefs-', '')}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <div className="flex gap-1">
+                            {getNextStatuses(prospect.status).map(nextStatus => (
+                              <button
+                                key={nextStatus}
+                                onClick={() => handleQuickStatusUpdate(prospect.id, nextStatus)}
+                                className={`px-2 py-1 text-xs rounded ${
+                                  STATUS_OPTIONS.find(s => s.value === nextStatus)?.color
+                                } hover:opacity-80`}
+                                title={`Mark as ${getStatusLabel(nextStatus)}`}
+                              >
+                                {getStatusLabel(nextStatus)}
+                              </button>
                             ))}
                           </div>
-                        ) : (
-                          <span className="text-gray-400 text-sm">-</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => openEditModal(prospect)}
-                            className="text-indigo-600 hover:text-indigo-900"
-                          >
-                            <PencilIcon className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(prospect.id)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => openEditModal(prospect)}
+                              className="text-indigo-600 hover:text-indigo-900"
+                              title="Edit"
+                            >
+                              <PencilIcon className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(prospect.id)}
+                              className="text-red-600 hover:text-red-900"
+                              title="Delete"
+                            >
+                              <TrashIcon className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })
                 )}
               </tbody>
             </table>

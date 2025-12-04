@@ -1,6 +1,17 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+// Helper to extract root domain from URL
+function extractRootDomain(url: string): string {
+  try {
+    const parsed = new URL(url)
+    // Remove www. prefix for consistent matching
+    return parsed.hostname.replace(/^www\./, '').toLowerCase()
+  } catch {
+    return url.toLowerCase()
+  }
+}
+
 // GET - Fetch imports with filters
 export async function GET(request: Request) {
   try {
@@ -33,11 +44,12 @@ export async function GET(request: Request) {
   }
 }
 
-// POST - Import Ahrefs data (bulk)
+// POST - Analyze competitor backlinks and compare with our existing backlinks
+// This is the main import endpoint that does intelligent comparison
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { rows, competitorDomain, batchId } = body
+    const { rows, competitorDomain } = body
 
     if (!rows || !Array.isArray(rows) || rows.length === 0) {
       return NextResponse.json({ error: 'No data to import' }, { status: 400 })
@@ -47,147 +59,185 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Competitor domain is required' }, { status: 400 })
     }
 
-    const importBatchId = batchId || `import-${Date.now()}`
+    // 1. Get ALL our existing backlink root domains (across all brands)
+    const existingBacklinks = await prisma.backlink.findMany({
+      select: {
+        rootDomain: true,
+        brandId: true,
+        brand: { select: { name: true } }
+      }
+    })
 
-    // Get existing prospect URLs to check for duplicates
+    // Create a map of domains we already have backlinks from
+    const existingBacklinkDomains = new Map<string, string[]>()
+    existingBacklinks.forEach(bl => {
+      const domain = bl.rootDomain.toLowerCase().replace(/^www\./, '')
+      const brands = existingBacklinkDomains.get(domain) || []
+      if (!brands.includes(bl.brand.name)) {
+        brands.push(bl.brand.name)
+      }
+      existingBacklinkDomains.set(domain, brands)
+    })
+
+    // 2. Get existing prospect URLs and domains
     const existingProspects = await prisma.backlinkProspect.findMany({
-      select: { referringPageUrl: true }
+      select: { referringPageUrl: true, rootDomain: true, status: true }
     })
-    const existingUrls = new Set(existingProspects.map(p => p.referringPageUrl))
-
-    // Get existing import URLs from same competitor
-    const existingImports = await prisma.ahrefsImport.findMany({
-      where: { competitorDomain },
-      select: { referringPageUrl: true }
+    const existingProspectUrls = new Set(existingProspects.map(p => p.referringPageUrl))
+    const existingProspectDomains = new Map<string, string>()
+    existingProspects.forEach(p => {
+      existingProspectDomains.set(p.rootDomain.toLowerCase().replace(/^www\./, ''), p.status)
     })
-    const existingImportUrls = new Set(existingImports.map(i => i.referringPageUrl))
 
-    // Prepare records
-    const newRecords = []
-    let duplicateCount = 0
-    let alreadyProspectCount = 0
+    // 3. Process each row and categorize
+    const analyzed: Array<{
+      url: string
+      rootDomain: string
+      dr: number | null
+      traffic: number | null
+      anchor: string | null
+      linkType: string | null
+      status: 'new' | 'already_have' | 'in_prospects'
+      existingBrands?: string[]
+      prospectStatus?: string
+    }> = []
+
+    let newOpportunities = 0
+    let alreadyHave = 0
+    let inProspects = 0
 
     for (const row of rows) {
       const url = row.referringPageUrl || row['Referring page URL']
-      if (!url) continue
+      if (!url || !url.startsWith('http')) continue
 
-      // Skip if already imported from this competitor
-      if (existingImportUrls.has(url)) {
-        duplicateCount++
-        continue
+      const rootDomain = extractRootDomain(url)
+      const dr = row.domainRating ? parseInt(row.domainRating) :
+                 (row['Domain rating'] ? parseInt(row['Domain rating']) : null)
+      const traffic = row.domainTraffic ? parseInt(row.domainTraffic) :
+                      (row['Domain traffic'] ? parseInt(row['Domain traffic']) : null)
+      const anchor = row.anchor || row['Anchor'] || null
+      const linkType = row.linkType || row['Type'] || null
+
+      // Check status
+      let status: 'new' | 'already_have' | 'in_prospects' = 'new'
+      let existingBrands: string[] | undefined
+      let prospectStatus: string | undefined
+
+      if (existingBacklinkDomains.has(rootDomain)) {
+        status = 'already_have'
+        existingBrands = existingBacklinkDomains.get(rootDomain)
+        alreadyHave++
+      } else if (existingProspectDomains.has(rootDomain) || existingProspectUrls.has(url)) {
+        status = 'in_prospects'
+        prospectStatus = existingProspectDomains.get(rootDomain) || 'NOT_CONTACTED'
+        inProspects++
+      } else {
+        newOpportunities++
       }
 
-      // Check if already a prospect
-      const isAlreadyProspect = existingUrls.has(url)
-      if (isAlreadyProspect) alreadyProspectCount++
-
-      newRecords.push({
-        referringPageTitle: row.referringPageTitle || row['Referring page title'] || null,
-        referringPageUrl: url,
-        language: row.language || row['Language'] || null,
-        platform: row.platform || row['Platform'] || null,
-        httpCode: row.httpCode ? parseInt(row.httpCode) : (row['Referring page HTTP code'] ? parseInt(row['Referring page HTTP code']) : null),
-        domainRating: row.domainRating ? parseInt(row.domainRating) : (row['Domain rating'] ? parseInt(row['Domain rating']) : null),
-        urlRating: row.urlRating ? parseInt(row.urlRating) : (row['UR'] ? parseInt(row['UR']) : null),
-        domainTraffic: row.domainTraffic ? parseInt(row.domainTraffic) : (row['Domain traffic'] ? parseInt(row['Domain traffic']) : null),
-        referringDomains: row.referringDomains ? parseInt(row.referringDomains) : (row['Referring domains'] ? parseInt(row['Referring domains']) : null),
-        linkedDomains: row.linkedDomains ? parseInt(row.linkedDomains) : (row['Linked domains'] ? parseInt(row['Linked domains']) : null),
-        externalLinks: row.externalLinks ? parseInt(row.externalLinks) : (row['External links'] ? parseInt(row['External links']) : null),
-        pageTraffic: row.pageTraffic ? parseInt(row.pageTraffic) : (row['Page traffic'] ? parseInt(row['Page traffic']) : null),
-        keywords: row.keywords ? parseInt(row.keywords) : (row['Keywords'] ? parseInt(row['Keywords']) : null),
-        targetUrl: row.targetUrl || row['Target URL'] || null,
-        anchor: row.anchor || row['Anchor'] || null,
-        linkType: row.linkType || row['Type'] || null,
-        contentType: row.contentType || row['Content'] || null,
-        nofollow: row.nofollow === true || row['Nofollow'] === 'true' || row['Nofollow'] === true,
-        ugc: row.ugc === true || row['UGC'] === 'true' || row['UGC'] === true,
-        sponsored: row.sponsored === true || row['Sponsored'] === 'true' || row['Sponsored'] === true,
-        firstSeen: row.firstSeen ? new Date(row.firstSeen) : (row['First seen'] ? new Date(row['First seen']) : null),
-        lastSeen: row.lastSeen ? new Date(row.lastSeen) : (row['Last seen'] ? new Date(row['Last seen']) : null),
-        importBatchId,
-        competitorDomain,
-        isProspect: isAlreadyProspect
+      analyzed.push({
+        url,
+        rootDomain,
+        dr,
+        traffic,
+        anchor,
+        linkType,
+        status,
+        existingBrands,
+        prospectStatus
       })
     }
 
-    // Bulk insert
-    if (newRecords.length > 0) {
-      await prisma.ahrefsImport.createMany({
-        data: newRecords,
-        skipDuplicates: true
-      })
-    }
+    // Sort: new opportunities first, then by DR
+    analyzed.sort((a, b) => {
+      // Status priority: new > in_prospects > already_have
+      const statusOrder = { new: 0, in_prospects: 1, already_have: 2 }
+      if (statusOrder[a.status] !== statusOrder[b.status]) {
+        return statusOrder[a.status] - statusOrder[b.status]
+      }
+      // Then by DR (desc)
+      return (b.dr || 0) - (a.dr || 0)
+    })
 
     return NextResponse.json({
-      message: 'Import completed',
-      imported: newRecords.length,
-      duplicates: duplicateCount,
-      alreadyProspects: alreadyProspectCount,
-      batchId: importBatchId
-    }, { status: 201 })
+      competitorDomain,
+      totalRows: rows.length,
+      analyzed: analyzed.length,
+      stats: {
+        newOpportunities,
+        alreadyHave,
+        inProspects
+      },
+      data: analyzed
+    })
   } catch (error) {
-    console.error('Error importing data:', error)
-    return NextResponse.json({ error: 'Failed to import data' }, { status: 500 })
+    console.error('Error analyzing import:', error)
+    return NextResponse.json({ error: 'Failed to analyze import' }, { status: 500 })
   }
 }
 
-// PUT - Mark import as prospect (add to prospects list)
+// PUT - Add selected domains as prospects
 export async function PUT(request: Request) {
   try {
     const body = await request.json()
-    const { ids } = body // Array of import IDs to convert to prospects
+    const { prospects, competitorDomain } = body
 
-    if (!ids || !Array.isArray(ids) || ids.length === 0) {
-      return NextResponse.json({ error: 'No IDs provided' }, { status: 400 })
+    if (!prospects || !Array.isArray(prospects) || prospects.length === 0) {
+      return NextResponse.json({ error: 'No prospects to add' }, { status: 400 })
     }
-
-    // Get imports
-    const imports = await prisma.ahrefsImport.findMany({
-      where: { id: { in: ids } }
-    })
 
     let created = 0
     let skipped = 0
+    const errors: string[] = []
 
-    for (const imp of imports) {
+    for (const prospect of prospects) {
       try {
-        // Extract root domain from URL
-        const url = new URL(imp.referringPageUrl)
-        const rootDomain = url.hostname
+        const rootDomain = extractRootDomain(prospect.url)
+
+        // Check if already exists (by URL or domain)
+        const existing = await prisma.backlinkProspect.findFirst({
+          where: {
+            OR: [
+              { referringPageUrl: prospect.url },
+              { rootDomain: rootDomain }
+            ]
+          }
+        })
+
+        if (existing) {
+          skipped++
+          continue
+        }
 
         await prisma.backlinkProspect.create({
           data: {
-            referringPageUrl: imp.referringPageUrl,
+            referringPageUrl: prospect.url,
             rootDomain,
-            domainRating: imp.domainRating,
-            domainTraffic: imp.domainTraffic,
-            nofollow: imp.nofollow,
-            source: `ahrefs-${imp.competitorDomain}`,
+            domainRating: prospect.dr || null,
+            domainTraffic: prospect.traffic || null,
+            nofollow: prospect.linkType?.toLowerCase().includes('nofollow') || false,
+            source: competitorDomain ? `ahrefs-${competitorDomain}` : 'ahrefs-import',
             status: 'NOT_CONTACTED'
           }
         })
 
-        // Mark as prospect in imports
-        await prisma.ahrefsImport.update({
-          where: { id: imp.id },
-          data: { isProspect: true }
-        })
-
         created++
-      } catch {
-        // Likely duplicate
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : 'Unknown error'
+        errors.push(`${prospect.rootDomain}: ${errorMsg}`)
         skipped++
       }
     }
 
     return NextResponse.json({
-      message: 'Prospects created',
+      message: 'Prospects added',
       created,
-      skipped
+      skipped,
+      errors: errors.length > 0 ? errors.slice(0, 5) : undefined
     })
   } catch (error) {
-    console.error('Error creating prospects from imports:', error)
-    return NextResponse.json({ error: 'Failed to create prospects' }, { status: 500 })
+    console.error('Error adding prospects:', error)
+    return NextResponse.json({ error: 'Failed to add prospects' }, { status: 500 })
   }
 }
 
