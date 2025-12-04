@@ -12,11 +12,26 @@ export async function GET(
 
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '50')
+    const search = searchParams.get('search') || ''
     const skip = (page - 1) * limit
+
+    // Build where clause with search
+    const where = {
+      brandId: id,
+      ...(search && {
+        OR: [
+          { rootDomain: { contains: search, mode: 'insensitive' as const } },
+          { referringPageUrl: { contains: search, mode: 'insensitive' as const } },
+          { targetUrl: { contains: search, mode: 'insensitive' as const } },
+          { anchor: { contains: search, mode: 'insensitive' as const } },
+          { referringPageTitle: { contains: search, mode: 'insensitive' as const } },
+        ]
+      })
+    }
 
     const [backlinks, total, stats] = await Promise.all([
       prisma.backlink.findMany({
-        where: { brandId: id },
+        where,
         orderBy: [
           { dr: 'desc' },
           { createdAt: 'desc' }
@@ -39,9 +54,9 @@ export async function GET(
           price: true
         }
       }),
-      prisma.backlink.count({ where: { brandId: id } }),
+      prisma.backlink.count({ where }),
       prisma.backlink.aggregate({
-        where: { brandId: id },
+        where,
         _avg: { dr: true },
         _sum: { price: true }
       })

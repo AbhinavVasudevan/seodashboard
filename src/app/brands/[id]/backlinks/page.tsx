@@ -9,7 +9,9 @@ import {
   ArrowLeftIcon,
   LinkIcon,
   ArrowUpTrayIcon,
-  DocumentArrowDownIcon
+  DocumentArrowDownIcon,
+  MagnifyingGlassIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline'
 import { toast } from 'sonner'
 
@@ -82,7 +84,18 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
   const [total, setTotal] = useState(0)
   const [avgDR, setAvgDR] = useState(0)
   const [totalSpent, setTotalSpent] = useState(0)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const limit = 50
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery)
+      setPage(1) // Reset to first page on search
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
   useEffect(() => {
     fetchBrand()
@@ -90,7 +103,7 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
 
   useEffect(() => {
     fetchBacklinks()
-  }, [resolvedParams.id, page])
+  }, [resolvedParams.id, page, debouncedSearch])
 
   const fetchBrand = async () => {
     try {
@@ -107,7 +120,8 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
   const fetchBacklinks = async () => {
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/brands/${resolvedParams.id}/backlinks?page=${page}&limit=${limit}`)
+      const searchParam = debouncedSearch ? `&search=${encodeURIComponent(debouncedSearch)}` : ''
+      const response = await fetch(`/api/brands/${resolvedParams.id}/backlinks?page=${page}&limit=${limit}${searchParam}`)
       if (response.ok) {
         const data = await response.json()
         setBacklinks(data.backlinks)
@@ -379,20 +393,54 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex justify-end gap-3 mb-4">
-          <button
-            onClick={() => setShowUploadModal(true)}
-            className="btn-secondary"
-          >
-            <ArrowUpTrayIcon className="h-4 w-4" />
-            Upload CSV
-          </button>
-          <button onClick={handleAdd} className="btn-primary">
-            <PlusIcon className="h-4 w-4" />
-            Add Backlink
-          </button>
+        {/* Search and Actions */}
+        <div className="flex flex-col sm:flex-row gap-4 mb-4">
+          {/* Search */}
+          <div className="relative flex-1 max-w-md">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search by domain, URL, anchor..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="input-field pl-9 pr-9"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <XMarkIcon className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="btn-secondary"
+            >
+              <ArrowUpTrayIcon className="h-4 w-4" />
+              Upload CSV
+            </button>
+            <button onClick={handleAdd} className="btn-primary">
+              <PlusIcon className="h-4 w-4" />
+              Add Backlink
+            </button>
+          </div>
         </div>
+
+        {/* Search results info */}
+        {debouncedSearch && (
+          <div className="mb-4 text-sm text-muted-foreground">
+            {total === 0 ? (
+              <span>No results found for &quot;{debouncedSearch}&quot;</span>
+            ) : (
+              <span>Found {total} result{total !== 1 ? 's' : ''} for &quot;{debouncedSearch}&quot;</span>
+            )}
+          </div>
+        )}
 
         {/* Table */}
         <div className="table-container">
