@@ -174,6 +174,8 @@ model Backlink {
   lastSeen             String?
   publishDate          DateTime?      // When the backlink was published
   price                Float?
+  paypalInvoice        String?        // PayPal invoice URL or ID
+  articleCode          String?        // Article/reference code
   remarks              String?
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt

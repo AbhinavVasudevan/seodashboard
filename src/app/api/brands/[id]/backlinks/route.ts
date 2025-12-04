@@ -98,7 +98,9 @@ export async function GET(
           content: true,
           firstSeen: true,
           publishDate: true,
-          price: true
+          price: true,
+          paypalInvoice: true,
+          articleCode: true
         }
       }),
       prisma.backlink.count({ where }),
@@ -177,6 +179,8 @@ export async function POST(
       lastSeen,
       publishDate,
       price,
+      paypalInvoice,
+      articleCode,
       remarks
     } = body
 
@@ -205,6 +209,8 @@ export async function POST(
         lastSeen: lastSeen || null,
         publishDate: publishDate ? new Date(publishDate) : null,
         price: price || null,
+        paypalInvoice: paypalInvoice || null,
+        articleCode: articleCode || null,
         remarks: remarks || null
       }
     })
@@ -247,6 +253,8 @@ export async function PUT(
         lastSeen: updateData.lastSeen || null,
         publishDate: updateData.publishDate ? new Date(updateData.publishDate) : null,
         price: updateData.price || null,
+        paypalInvoice: updateData.paypalInvoice || null,
+        articleCode: updateData.articleCode || null,
         remarks: updateData.remarks || null
       }
     })

@@ -38,6 +38,8 @@ interface Backlink {
   lastSeen: string | null
   publishDate: string | null
   price: number | null
+  paypalInvoice: string | null
+  articleCode: string | null
   remarks: string | null
   createdAt: string
   category?: DomainCategory
@@ -89,6 +91,8 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
     dr: '',
     publishDate: '',
     price: '',
+    paypalInvoice: '',
+    articleCode: '',
     remarks: ''
   })
   const [showUploadModal, setShowUploadModal] = useState(false)
@@ -168,8 +172,10 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
       anchor: '',
       linkType: 'dofollow',
       dr: '',
-      publishDate: '',
+      publishDate: new Date().toISOString().split('T')[0], // Default to today
       price: '',
+      paypalInvoice: '',
+      articleCode: '',
       remarks: ''
     })
     setShowModal(true)
@@ -185,6 +191,8 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
       dr: backlink.dr?.toString() || '',
       publishDate: backlink.publishDate ? new Date(backlink.publishDate).toISOString().split('T')[0] : '',
       price: backlink.price?.toString() || '',
+      paypalInvoice: backlink.paypalInvoice || '',
+      articleCode: backlink.articleCode || '',
       remarks: backlink.remarks || ''
     })
     setShowModal(true)
@@ -918,6 +926,26 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
                     value={formData.publishDate}
                     onChange={(e) => setFormData({...formData, publishDate: e.target.value})}
                     className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="input-label">PayPal Invoice</label>
+                  <input
+                    type="text"
+                    value={formData.paypalInvoice}
+                    onChange={(e) => setFormData({...formData, paypalInvoice: e.target.value})}
+                    className="input-field"
+                    placeholder="Invoice URL or ID"
+                  />
+                </div>
+                <div>
+                  <label className="input-label">Article Code</label>
+                  <input
+                    type="text"
+                    value={formData.articleCode}
+                    onChange={(e) => setFormData({...formData, articleCode: e.target.value})}
+                    className="input-field"
+                    placeholder="Reference code"
                   />
                 </div>
                 <div className="md:col-span-2">
