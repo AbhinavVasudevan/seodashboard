@@ -9,7 +9,8 @@ import {
   ChevronRightIcon,
   ArrowUpTrayIcon,
   XMarkIcon,
-  LinkIcon
+  LinkIcon,
+  GlobeAltIcon
 } from '@heroicons/react/24/outline'
 
 interface Brand {
@@ -269,74 +270,76 @@ export default function LinkDirectoryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-secondary-50">
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-6">
+    <div className="page-container">
+      <div className="page-content">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <GlobeAltIcon className="h-6 w-6 text-primary" />
+            </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Link Directory</h1>
-              <p className="text-gray-600 mt-1">Master list of all domains - view which brands use each domain</p>
+              <h1 className="page-title">Link Directory</h1>
+              <p className="text-sm text-muted-foreground">Master list of all domains - view which brands use each domain</p>
             </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowImportModal(true)}
-                className="btn-secondary flex items-center gap-2"
-              >
-                <ArrowUpTrayIcon className="h-5 w-5" />
-                Import
-              </button>
-              <button
-                onClick={() => {
-                  setEditingDomain(null)
-                  setFormData({
-                    rootDomain: '',
-                    exampleUrl: '',
-                    domainRating: '',
-                    domainTraffic: '',
-                    nofollow: false,
-                    contactedOn: '',
-                    contactMethod: '',
-                    contactEmail: '',
-                    contactFormUrl: '',
-                    remarks: '',
-                  })
-                  setShowEditModal(true)
-                }}
-                className="btn-primary flex items-center gap-2"
-              >
-                <PlusIcon className="h-5 w-5" />
-                Add Domain
-              </button>
-            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowImportModal(true)}
+              className="btn-secondary"
+            >
+              <ArrowUpTrayIcon className="h-4 w-4" />
+              Import
+            </button>
+            <button
+              onClick={() => {
+                setEditingDomain(null)
+                setFormData({
+                  rootDomain: '',
+                  exampleUrl: '',
+                  domainRating: '',
+                  domainTraffic: '',
+                  nofollow: false,
+                  contactedOn: '',
+                  contactMethod: '',
+                  contactEmail: '',
+                  contactFormUrl: '',
+                  remarks: '',
+                })
+                setShowEditModal(true)
+              }}
+              className="btn-primary"
+            >
+              <PlusIcon className="h-4 w-4" />
+              Add Domain
+            </button>
           </div>
         </div>
-      </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="card">
-            <div className="text-sm font-medium text-gray-600">Total Domains</div>
-            <div className="text-2xl font-semibold text-gray-900">{stats.totalDomains.toLocaleString()}</div>
+          <div className="stat-card">
+            <div className="stat-value text-foreground">{stats.totalDomains.toLocaleString()}</div>
+            <div className="stat-label">Total Domains</div>
           </div>
-          <div className="card">
-            <div className="text-sm font-medium text-gray-600">Avg DR</div>
-            <div className="text-2xl font-semibold text-blue-600">{stats.avgDomainRating}</div>
+          <div className="stat-card">
+            <div className="stat-value text-blue-600 dark:text-blue-400">{stats.avgDomainRating}</div>
+            <div className="stat-label">Avg DR</div>
           </div>
-          <div className="card">
-            <div className="text-sm font-medium text-gray-600">Contacted</div>
-            <div className="text-2xl font-semibold text-green-600">{stats.contactedDomains.toLocaleString()}</div>
+          <div className="stat-card">
+            <div className="stat-value text-green-600 dark:text-green-400">{stats.contactedDomains.toLocaleString()}</div>
+            <div className="stat-label">Contacted</div>
           </div>
-          <div className="card">
-            <div className="text-sm font-medium text-gray-600">With Backlinks</div>
-            <div className="text-2xl font-semibold text-purple-600">{stats.domainsWithBacklinks.toLocaleString()}</div>
+          <div className="stat-card">
+            <div className="stat-value text-purple-600 dark:text-purple-400">{stats.domainsWithBacklinks.toLocaleString()}</div>
+            <div className="stat-label">With Backlinks</div>
           </div>
         </div>
 
         {/* Search */}
-        <div className="mb-6">
-          <div className="relative">
-            <MagnifyingGlassIcon className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+        <div className="filter-bar">
+          <div className="relative flex-1 max-w-md">
+            <MagnifyingGlassIcon className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
               placeholder="Search domains, URLs, or emails..."
@@ -345,208 +348,218 @@ export default function LinkDirectoryPage() {
                 setSearchTerm(e.target.value)
                 setPage(1)
               }}
-              className="input-field pl-10"
+              className="input-field pl-9"
             />
           </div>
         </div>
 
         {/* Table */}
-        <div className="card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-8"></th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Root Domain</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">DR</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Traffic</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nofollow</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contacted</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Method</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Brands</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Remarks</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {isLoading ? (
+        <div className="table-container">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="spinner-md text-primary"></div>
+            </div>
+          ) : (
+            <div className="table-wrapper scrollbar-thin">
+              <table className="data-table">
+                <thead>
                   <tr>
-                    <td colSpan={10} className="px-6 py-12 text-center text-gray-500">
-                      Loading...
-                    </td>
+                    <th className="w-8"></th>
+                    <th>Root Domain</th>
+                    <th>DR</th>
+                    <th>Traffic</th>
+                    <th>Nofollow</th>
+                    <th>Contacted</th>
+                    <th>Method</th>
+                    <th>Brands</th>
+                    <th>Remarks</th>
+                    <th>Actions</th>
                   </tr>
-                ) : domains.length === 0 ? (
-                  <tr>
-                    <td colSpan={10} className="px-6 py-12 text-center text-gray-500">
-                      No domains found
-                    </td>
-                  </tr>
-                ) : (
-                  domains.map(domain => (
-                    <>
-                      <tr key={domain.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-4">
-                          {domain.totalBacklinks > 0 && (
-                            <button
-                              onClick={() => toggleExpand(domain.id)}
-                              className="text-gray-400 hover:text-gray-600"
-                            >
-                              {expandedDomains.has(domain.id) ? (
-                                <ChevronDownIcon className="h-5 w-5" />
-                              ) : (
-                                <ChevronRightIcon className="h-5 w-5" />
-                              )}
-                            </button>
-                          )}
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="flex items-center gap-2">
-                            {domain.hasLiveBacklinks && (
-                              <LinkIcon className="h-4 w-4 text-green-500" title="Has live backlinks" />
-                            )}
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">{domain.rootDomain}</div>
-                              {domain.exampleUrl && (
-                                <a
-                                  href={domain.exampleUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-xs text-blue-600 hover:text-blue-800 truncate block max-w-xs"
-                                >
-                                  {domain.exampleUrl.substring(0, 50)}...
-                                </a>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <span className={`font-medium ${
-                            domain.domainRating && domain.domainRating >= 50
-                              ? 'text-green-600'
-                              : domain.domainRating && domain.domainRating >= 30
-                                ? 'text-amber-600'
-                                : 'text-gray-900'
-                          }`}>
-                            {domain.domainRating || '-'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {formatTraffic(domain.domainTraffic)}
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          {domain.nofollow ? (
-                            <span className="px-2 py-0.5 text-xs bg-red-100 text-red-800 rounded">Yes</span>
-                          ) : (
-                            <span className="text-gray-400 text-sm">-</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {domain.contactedOn ? new Date(domain.contactedOn).toLocaleDateString() : '-'}
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {domain.contactMethod?.replace('_', ' ') || '-'}
-                        </td>
-                        <td className="px-4 py-4">
-                          {domain.brands.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {domain.brands.slice(0, 3).map(brand => (
-                                <span key={brand.id} className="px-2 py-0.5 text-xs bg-purple-100 text-purple-800 rounded">
-                                  {brand.name} ({brand.count})
-                                </span>
-                              ))}
-                              {domain.brands.length > 3 && (
-                                <span className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">
-                                  +{domain.brands.length - 3} more
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-gray-400 text-sm">-</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-4 text-sm text-gray-500 max-w-xs truncate" title={domain.remarks || ''}>
-                          {domain.remarks || '-'}
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <button
-                            onClick={() => openEditModal(domain)}
-                            className="text-indigo-600 hover:text-indigo-900"
-                          >
-                            <PencilIcon className="h-4 w-4" />
-                          </button>
-                        </td>
-                      </tr>
-
-                      {/* Expanded details */}
-                      {expandedDomains.has(domain.id) && (
-                        <tr key={`${domain.id}-details`}>
-                          <td colSpan={10} className="px-4 py-4 bg-gray-50">
-                            {loadingDetails.has(domain.id) ? (
-                              <div className="text-center text-gray-500 py-4">Loading details...</div>
-                            ) : domainDetails[domain.id] ? (
-                              <div className="space-y-4">
-                                <div className="text-sm font-medium text-gray-700">
-                                  Backlinks by Brand ({domainDetails[domain.id].stats.totalBacklinks} total,
-                                  ${domainDetails[domain.id].stats.totalSpent.toFixed(2)} spent)
-                                </div>
-                                {domainDetails[domain.id].backlinksByBrand.map(brandGroup => (
-                                  <div key={brandGroup.brand.id} className="bg-white rounded-lg p-4 border">
-                                    <div className="flex items-center justify-between mb-2">
-                                      <span className="font-medium text-gray-900">{brandGroup.brand.name}</span>
-                                      <span className="text-sm text-gray-500">
-                                        {brandGroup.backlinks.length} links · ${brandGroup.totalSpent.toFixed(2)} spent
-                                      </span>
-                                    </div>
-                                    <div className="space-y-2">
-                                      {brandGroup.backlinks.slice(0, 5).map(backlink => (
-                                        <div key={backlink.id} className="text-sm flex items-center gap-4 text-gray-600">
-                                          <a
-                                            href={backlink.referringPageUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-blue-600 hover:text-blue-800 truncate max-w-md"
-                                          >
-                                            {backlink.referringPageUrl}
-                                          </a>
-                                          <span className="text-gray-400">→</span>
-                                          <span className="truncate max-w-xs">{backlink.targetUrl}</span>
-                                          {backlink.dr && (
-                                            <span className="text-xs bg-blue-100 text-blue-800 px-1 rounded">
-                                              DR {backlink.dr}
-                                            </span>
-                                          )}
-                                          {backlink.price && (
-                                            <span className="text-xs text-green-600">
-                                              ${backlink.price}
-                                            </span>
-                                          )}
-                                        </div>
-                                      ))}
-                                      {brandGroup.backlinks.length > 5 && (
-                                        <div className="text-sm text-gray-500">
-                                          +{brandGroup.backlinks.length - 5} more backlinks
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="text-center text-gray-500 py-4">No details available</div>
+                </thead>
+                <tbody>
+                  {domains.length === 0 ? (
+                    <tr>
+                      <td colSpan={10}>
+                        <div className="empty-state">
+                          <GlobeAltIcon className="empty-state-icon" />
+                          <p className="empty-state-title">No domains found</p>
+                          <p className="empty-state-description">
+                            {searchTerm ? 'Try adjusting your search' : 'Add your first domain to get started'}
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    domains.map(domain => (
+                      <>
+                        <tr key={domain.id}>
+                          <td>
+                            {domain.totalBacklinks > 0 && (
+                              <button
+                                onClick={() => toggleExpand(domain.id)}
+                                className="action-btn"
+                              >
+                                {expandedDomains.has(domain.id) ? (
+                                  <ChevronDownIcon className="h-4 w-4" />
+                                ) : (
+                                  <ChevronRightIcon className="h-4 w-4" />
+                                )}
+                              </button>
                             )}
                           </td>
+                          <td>
+                            <div className="flex items-center gap-2">
+                              {domain.hasLiveBacklinks && (
+                                <LinkIcon className="h-4 w-4 text-green-500" title="Has live backlinks" />
+                              )}
+                              <div>
+                                <div className="cell-primary">{domain.rootDomain}</div>
+                                {domain.exampleUrl && (
+                                  <a
+                                    href={domain.exampleUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-primary hover:underline truncate block max-w-[200px]"
+                                  >
+                                    {domain.exampleUrl.substring(0, 40)}...
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="whitespace-nowrap">
+                            <span className={`font-medium ${
+                              domain.domainRating && domain.domainRating >= 50
+                                ? 'text-green-600'
+                                : domain.domainRating && domain.domainRating >= 30
+                                  ? 'text-amber-600'
+                                  : 'text-foreground'
+                            }`}>
+                              {domain.domainRating || '-'}
+                            </span>
+                          </td>
+                          <td className="whitespace-nowrap text-muted-foreground">
+                            {formatTraffic(domain.domainTraffic)}
+                          </td>
+                          <td className="whitespace-nowrap">
+                            {domain.nofollow ? (
+                              <span className="badge-destructive">Yes</span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </td>
+                          <td className="whitespace-nowrap text-muted-foreground">
+                            {domain.contactedOn ? new Date(domain.contactedOn).toLocaleDateString() : '-'}
+                          </td>
+                          <td className="whitespace-nowrap text-muted-foreground">
+                            {domain.contactMethod?.replace('_', ' ') || '-'}
+                          </td>
+                          <td>
+                            {domain.brands.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {domain.brands.slice(0, 3).map(brand => (
+                                  <span key={brand.id} className="badge-purple">
+                                    {brand.name} ({brand.count})
+                                  </span>
+                                ))}
+                                {domain.brands.length > 3 && (
+                                  <span className="badge-default">
+                                    +{domain.brands.length - 3} more
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </td>
+                          <td className="cell-truncate max-w-[150px]" title={domain.remarks || ''}>
+                            {domain.remarks || '-'}
+                          </td>
+                          <td className="whitespace-nowrap">
+                            <button
+                              onClick={() => openEditModal(domain)}
+                              className="action-btn"
+                              title="Edit"
+                            >
+                              <PencilIcon className="h-4 w-4" />
+                            </button>
+                          </td>
                         </tr>
-                      )}
-                    </>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+
+                        {/* Expanded details */}
+                        {expandedDomains.has(domain.id) && (
+                          <tr key={`${domain.id}-details`}>
+                            <td colSpan={10} className="bg-muted/50 p-4">
+                              {loadingDetails.has(domain.id) ? (
+                                <div className="flex items-center justify-center py-4">
+                                  <div className="spinner-sm text-primary"></div>
+                                  <span className="ml-2 text-muted-foreground">Loading details...</span>
+                                </div>
+                              ) : domainDetails[domain.id] ? (
+                                <div className="space-y-4">
+                                  <div className="text-sm font-medium text-foreground">
+                                    Backlinks by Brand ({domainDetails[domain.id].stats.totalBacklinks} total,
+                                    ${domainDetails[domain.id].stats.totalSpent.toFixed(2)} spent)
+                                  </div>
+                                  {domainDetails[domain.id].backlinksByBrand.map(brandGroup => (
+                                    <div key={brandGroup.brand.id} className="bg-card rounded-lg p-4 border border-border">
+                                      <div className="flex items-center justify-between mb-2">
+                                        <span className="font-medium text-foreground">{brandGroup.brand.name}</span>
+                                        <span className="text-sm text-muted-foreground">
+                                          {brandGroup.backlinks.length} links · ${brandGroup.totalSpent.toFixed(2)} spent
+                                        </span>
+                                      </div>
+                                      <div className="space-y-2">
+                                        {brandGroup.backlinks.slice(0, 5).map(backlink => (
+                                          <div key={backlink.id} className="text-sm flex items-center gap-4 text-muted-foreground">
+                                            <a
+                                              href={backlink.referringPageUrl}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="text-primary hover:underline truncate max-w-md"
+                                            >
+                                              {backlink.referringPageUrl}
+                                            </a>
+                                            <span className="text-muted-foreground/50">→</span>
+                                            <span className="truncate max-w-xs">{backlink.targetUrl}</span>
+                                            {backlink.dr && (
+                                              <span className="badge-default">
+                                                DR {backlink.dr}
+                                              </span>
+                                            )}
+                                            {backlink.price && (
+                                              <span className="text-green-600">
+                                                ${backlink.price}
+                                              </span>
+                                            )}
+                                          </div>
+                                        ))}
+                                        {brandGroup.backlinks.length > 5 && (
+                                          <div className="text-sm text-muted-foreground">
+                                            +{brandGroup.backlinks.length - 5} more backlinks
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="text-center text-muted-foreground py-4">No details available</div>
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                      </>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="px-4 py-3 border-t flex items-center justify-between">
+            <div className="px-4 py-3 border-t border-border flex items-center justify-between">
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
@@ -554,7 +567,7 @@ export default function LinkDirectoryPage() {
               >
                 Previous
               </button>
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-muted-foreground">
                 Page {page} of {totalPages}
               </span>
               <button
@@ -567,160 +580,145 @@ export default function LinkDirectoryPage() {
             </div>
           )}
         </div>
-      </main>
+      </div>
 
       {/* Edit Modal */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
-              <h2 className="text-xl font-bold">
+        <div className="modal-overlay">
+          <div className="modal-content max-w-2xl">
+            <div className="modal-header">
+              <h3 className="modal-title">
                 {editingDomain ? 'Edit Domain' : 'Add Domain'}
-              </h2>
-              <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600">
-                <XMarkIcon className="h-6 w-6" />
+              </h3>
+              <button onClick={() => setShowEditModal(false)} className="action-btn">
+                <XMarkIcon className="h-5 w-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Root Domain *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.rootDomain}
-                    onChange={(e) => setFormData({ ...formData, rootDomain: e.target.value })}
-                    className="input-field"
-                    required
-                    disabled={!!editingDomain}
-                    placeholder="example.com"
-                  />
-                </div>
+            <form onSubmit={handleSubmit}>
+              <div className="modal-body">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="input-label">Root Domain *</label>
+                    <input
+                      type="text"
+                      value={formData.rootDomain}
+                      onChange={(e) => setFormData({ ...formData, rootDomain: e.target.value })}
+                      className="input-field"
+                      required
+                      disabled={!!editingDomain}
+                      placeholder="example.com"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Example URL
-                  </label>
-                  <input
-                    type="url"
-                    value={formData.exampleUrl}
-                    onChange={(e) => setFormData({ ...formData, exampleUrl: e.target.value })}
-                    className="input-field"
-                    placeholder="https://example.com/page"
-                  />
-                </div>
+                  <div>
+                    <label className="input-label">Example URL</label>
+                    <input
+                      type="url"
+                      value={formData.exampleUrl}
+                      onChange={(e) => setFormData({ ...formData, exampleUrl: e.target.value })}
+                      className="input-field"
+                      placeholder="https://example.com/page"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Domain Rating
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={formData.domainRating}
-                    onChange={(e) => setFormData({ ...formData, domainRating: e.target.value })}
-                    className="input-field"
-                    placeholder="0-100"
-                  />
-                </div>
+                  <div>
+                    <label className="input-label">Domain Rating</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={formData.domainRating}
+                      onChange={(e) => setFormData({ ...formData, domainRating: e.target.value })}
+                      className="input-field"
+                      placeholder="0-100"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Domain Traffic
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.domainTraffic}
-                    onChange={(e) => setFormData({ ...formData, domainTraffic: e.target.value })}
-                    className="input-field"
-                    placeholder="Monthly traffic"
-                  />
-                </div>
+                  <div>
+                    <label className="input-label">Domain Traffic</label>
+                    <input
+                      type="number"
+                      value={formData.domainTraffic}
+                      onChange={(e) => setFormData({ ...formData, domainTraffic: e.target.value })}
+                      className="input-field"
+                      placeholder="Monthly traffic"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Contacted On
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.contactedOn}
-                    onChange={(e) => setFormData({ ...formData, contactedOn: e.target.value })}
-                    className="input-field"
-                  />
-                </div>
+                  <div>
+                    <label className="input-label">Contacted On</label>
+                    <input
+                      type="date"
+                      value={formData.contactedOn}
+                      onChange={(e) => setFormData({ ...formData, contactedOn: e.target.value })}
+                      className="input-field"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Contact Method
-                  </label>
-                  <select
-                    value={formData.contactMethod}
-                    onChange={(e) => setFormData({ ...formData, contactMethod: e.target.value })}
-                    className="input-field"
-                  >
-                    <option value="">Select...</option>
-                    {CONTACT_METHODS.map(m => (
-                      <option key={m.value} value={m.value}>{m.label}</option>
-                    ))}
-                  </select>
-                </div>
+                  <div>
+                    <label className="input-label">Contact Method</label>
+                    <select
+                      value={formData.contactMethod}
+                      onChange={(e) => setFormData({ ...formData, contactMethod: e.target.value })}
+                      className="input-field"
+                    >
+                      <option value="">Select...</option>
+                      {CONTACT_METHODS.map(m => (
+                        <option key={m.value} value={m.value}>{m.label}</option>
+                      ))}
+                    </select>
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Contact Email
-                  </label>
-                  <input
-                    type="email"
-                    value={formData.contactEmail}
-                    onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
-                    className="input-field"
-                    placeholder="contact@example.com"
-                  />
-                </div>
+                  <div>
+                    <label className="input-label">Contact Email</label>
+                    <input
+                      type="email"
+                      value={formData.contactEmail}
+                      onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
+                      className="input-field"
+                      placeholder="contact@example.com"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Contact Form URL
-                  </label>
-                  <input
-                    type="url"
-                    value={formData.contactFormUrl}
-                    onChange={(e) => setFormData({ ...formData, contactFormUrl: e.target.value })}
-                    className="input-field"
-                    placeholder="https://example.com/contact"
-                  />
-                </div>
+                  <div>
+                    <label className="input-label">Contact Form URL</label>
+                    <input
+                      type="url"
+                      value={formData.contactFormUrl}
+                      onChange={(e) => setFormData({ ...formData, contactFormUrl: e.target.value })}
+                      className="input-field"
+                      placeholder="https://example.com/contact"
+                    />
+                  </div>
 
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Remarks
-                  </label>
-                  <textarea
-                    value={formData.remarks}
-                    onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
-                    className="input-field"
-                    rows={2}
-                    placeholder="Notes about this domain..."
-                  />
-                </div>
+                  <div className="md:col-span-2">
+                    <label className="input-label">Remarks</label>
+                    <textarea
+                      value={formData.remarks}
+                      onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+                      className="input-field"
+                      rows={2}
+                      placeholder="Notes about this domain..."
+                    />
+                  </div>
 
-                <div className="flex items-center">
-                  <label className="flex items-center">
+                  <div className="flex items-center gap-2 md:col-span-2">
                     <input
                       type="checkbox"
+                      id="nofollow"
                       checked={formData.nofollow}
                       onChange={(e) => setFormData({ ...formData, nofollow: e.target.checked })}
-                      className="h-4 w-4 text-primary-600 border-gray-300 rounded"
+                      className="h-4 w-4 text-primary rounded border-input focus:ring-ring"
                     />
-                    <span className="ml-2 text-sm text-gray-700">Nofollow Links</span>
-                  </label>
+                    <label htmlFor="nofollow" className="text-sm text-foreground">
+                      Nofollow Links
+                    </label>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t">
+              <div className="modal-footer">
                 <button
                   type="button"
                   onClick={() => setShowEditModal(false)}
@@ -739,19 +737,19 @@ export default function LinkDirectoryPage() {
 
       {/* Import Modal */}
       {showImportModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
-              <h2 className="text-xl font-bold">Import Domains</h2>
-              <button onClick={() => setShowImportModal(false)} className="text-gray-400 hover:text-gray-600">
-                <XMarkIcon className="h-6 w-6" />
+        <div className="modal-overlay">
+          <div className="modal-content max-w-3xl">
+            <div className="modal-header">
+              <h3 className="modal-title">Import Domains</h3>
+              <button onClick={() => setShowImportModal(false)} className="action-btn">
+                <XMarkIcon className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
-              <div className="text-sm text-gray-600">
+            <div className="modal-body">
+              <div className="text-sm text-muted-foreground mb-4">
                 <p>Paste your data below (CSV or tab-separated). Expected columns:</p>
-                <p className="font-mono text-xs mt-2 bg-gray-100 p-2 rounded">
+                <p className="font-mono text-xs mt-2 bg-muted p-2 rounded">
                   Referring page URL, Domain rating, Domain traffic, Nofollow, Contacted On, Contacted, Remarks, Email/Link
                 </p>
               </div>
@@ -763,23 +761,23 @@ export default function LinkDirectoryPage() {
                 rows={15}
                 placeholder="Paste your data here..."
               />
+            </div>
 
-              <div className="flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowImportModal(false)}
-                  className="btn-secondary"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleImport}
-                  disabled={importing || !importData.trim()}
-                  className="btn-primary disabled:opacity-50"
-                >
-                  {importing ? 'Importing...' : 'Import'}
-                </button>
-              </div>
+            <div className="modal-footer">
+              <button
+                type="button"
+                onClick={() => setShowImportModal(false)}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleImport}
+                disabled={importing || !importData.trim()}
+                className="btn-primary disabled:opacity-50"
+              >
+                {importing ? 'Importing...' : 'Import'}
+              </button>
             </div>
           </div>
         </div>
