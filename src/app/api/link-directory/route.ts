@@ -13,16 +13,34 @@ export async function GET(request: NextRequest) {
 
     const skip = (page - 1) * limit
 
-    // Build where clause
+    // Get all spam domains to exclude
+    const spamDomains = await prisma.blockedDomain.findMany({
+      where: { type: 'SPAM' },
+      select: { domain: true },
+    })
+    const spamDomainSet = new Set(spamDomains.map(d => d.domain.toLowerCase()))
+
+    // Build where clause - exclude spam domains
+    const baseWhere = {
+      rootDomain: {
+        notIn: Array.from(spamDomainSet),
+      },
+    }
+
     const where = search
       ? {
-          OR: [
-            { rootDomain: { contains: search, mode: 'insensitive' as const } },
-            { exampleUrl: { contains: search, mode: 'insensitive' as const } },
-            { contactEmail: { contains: search, mode: 'insensitive' as const } },
+          AND: [
+            baseWhere,
+            {
+              OR: [
+                { rootDomain: { contains: search, mode: 'insensitive' as const } },
+                { exampleUrl: { contains: search, mode: 'insensitive' as const } },
+                { contactEmail: { contains: search, mode: 'insensitive' as const } },
+              ],
+            },
           ],
         }
-      : {}
+      : baseWhere
 
     // Fetch domains with counts
     const [domains, total] = await Promise.all([
@@ -94,18 +112,23 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Calculate stats
+    // Calculate stats (excluding spam domains)
     const stats = await prisma.linkDirectoryDomain.aggregate({
+      where: baseWhere,
       _count: { id: true },
       _avg: { domainRating: true },
     })
 
     const contactedCount = await prisma.linkDirectoryDomain.count({
-      where: { contactedOn: { not: null } },
+      where: {
+        ...baseWhere,
+        contactedOn: { not: null },
+      },
     })
 
     const withBacklinksCount = await prisma.linkDirectoryDomain.count({
       where: {
+        ...baseWhere,
         backlinks: {
           some: {},
         },
