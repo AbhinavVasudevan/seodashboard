@@ -42,6 +42,7 @@ interface Domain {
   totalSpent: number
   brands: Brand[]
   hasLiveBacklinks: boolean
+  category: 'SPAM' | 'FREE_AFFILIATE' | 'FREE_LINK' | null
 }
 
 interface PriceHistory {
@@ -98,6 +99,16 @@ export default function LinkDirectoryPage() {
     contactedDomains: 0,
     domainsWithBacklinks: 0,
   })
+  const [hiddenCounts, setHiddenCounts] = useState({
+    spam: 0,
+    freeAffiliate: 0,
+    freeLink: 0,
+  })
+
+  // Category filters
+  const [hideSpam, setHideSpam] = useState(true)
+  const [hideFreeAffiliate, setHideFreeAffiliate] = useState(true)
+  const [hideFreeLink, setHideFreeLink] = useState(true)
 
   // Expanded rows
   const [expandedDomains, setExpandedDomains] = useState<Set<string>>(new Set())
@@ -138,6 +149,9 @@ export default function LinkDirectoryPage() {
         limit: '50',
         sortBy: 'domainRating',
         sortOrder: 'desc',
+        hideSpam: hideSpam.toString(),
+        hideFreeAffiliate: hideFreeAffiliate.toString(),
+        hideFreeLink: hideFreeLink.toString(),
       })
       if (searchTerm) params.append('search', searchTerm)
 
@@ -147,12 +161,13 @@ export default function LinkDirectoryPage() {
       setDomains(data.domains)
       setTotalPages(data.totalPages)
       setStats(data.stats)
+      setHiddenCounts(data.hiddenCounts || { spam: 0, freeAffiliate: 0, freeLink: 0 })
     } catch (error) {
       console.error('Error fetching domains:', error)
     } finally {
       setIsLoading(false)
     }
-  }, [page, searchTerm])
+  }, [page, searchTerm, hideSpam, hideFreeAffiliate, hideFreeLink])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -368,8 +383,8 @@ export default function LinkDirectoryPage() {
           </div>
         </div>
 
-        {/* Search */}
-        <div className="filter-bar">
+        {/* Search & Filters */}
+        <div className="filter-bar flex-wrap gap-3">
           <div className="relative flex-1 max-w-md">
             <MagnifyingGlassIcon className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
             <input
@@ -382,6 +397,40 @@ export default function LinkDirectoryPage() {
               }}
               className="input-field pl-9"
             />
+          </div>
+
+          {/* Category Filters */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => { setHideSpam(!hideSpam); setPage(1); }}
+              className={`text-xs px-3 py-1.5 rounded-full transition-colors ${
+                hideSpam
+                  ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                  : 'bg-red-500 text-white'
+              }`}
+            >
+              {hideSpam ? `Hiding ${hiddenCounts.spam} Spam` : `Showing Spam (${hiddenCounts.spam})`}
+            </button>
+            <button
+              onClick={() => { setHideFreeAffiliate(!hideFreeAffiliate); setPage(1); }}
+              className={`text-xs px-3 py-1.5 rounded-full transition-colors ${
+                hideFreeAffiliate
+                  ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                  : 'bg-amber-500 text-white'
+              }`}
+            >
+              {hideFreeAffiliate ? `Hiding ${hiddenCounts.freeAffiliate} Free Affiliate` : `Showing Free Affiliate (${hiddenCounts.freeAffiliate})`}
+            </button>
+            <button
+              onClick={() => { setHideFreeLink(!hideFreeLink); setPage(1); }}
+              className={`text-xs px-3 py-1.5 rounded-full transition-colors ${
+                hideFreeLink
+                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                  : 'bg-blue-500 text-white'
+              }`}
+            >
+              {hideFreeLink ? `Hiding ${hiddenCounts.freeLink} Free Links` : `Showing Free Links (${hiddenCounts.freeLink})`}
+            </button>
           </div>
         </div>
 
@@ -444,7 +493,24 @@ export default function LinkDirectoryPage() {
                                 <LinkIcon className="h-4 w-4 text-green-500" title="Has live backlinks" />
                               )}
                               <div>
-                                <div className="cell-primary">{domain.rootDomain}</div>
+                                <div className="flex items-center gap-2">
+                                  <span className="cell-primary">{domain.rootDomain}</span>
+                                  {domain.category === 'SPAM' && (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                                      SPAM
+                                    </span>
+                                  )}
+                                  {domain.category === 'FREE_AFFILIATE' && (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                                      FREE AFF
+                                    </span>
+                                  )}
+                                  {domain.category === 'FREE_LINK' && (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                                      FREE
+                                    </span>
+                                  )}
+                                </div>
                                 {domain.exampleUrl && (
                                   <a
                                     href={domain.exampleUrl}
@@ -662,8 +728,8 @@ export default function LinkDirectoryPage() {
       {/* Edit Modal */}
       {showEditModal && (
         <div className="modal-overlay">
-          <div className="modal-content max-w-2xl">
-            <div className="modal-header">
+          <div className="modal-content max-w-2xl max-h-[90vh] flex flex-col">
+            <div className="modal-header flex-shrink-0">
               <h3 className="modal-title">
                 {editingDomain ? 'Edit Domain' : 'Add Domain'}
               </h3>
@@ -672,8 +738,8 @@ export default function LinkDirectoryPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit}>
-              <div className="modal-body">
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+              <div className="modal-body overflow-y-auto flex-1">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="input-label">Root Domain *</label>
@@ -688,7 +754,7 @@ export default function LinkDirectoryPage() {
                     />
                   </div>
 
-                  <div>
+                  <div className="md:col-span-2">
                     <label className="input-label">Example URL</label>
                     <input
                       type="url"
@@ -758,7 +824,7 @@ export default function LinkDirectoryPage() {
                     />
                   </div>
 
-                  <div>
+                  <div className="md:col-span-2">
                     <label className="input-label">Contact Form URL</label>
                     <input
                       type="url"
@@ -866,7 +932,7 @@ export default function LinkDirectoryPage() {
                 </div>
               </div>
 
-              <div className="modal-footer">
+              <div className="modal-footer flex-shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowEditModal(false)}

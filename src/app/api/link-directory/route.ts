@@ -12,12 +12,28 @@ export async function GET(request: NextRequest) {
     const sortBy = searchParams.get('sortBy') || 'domainRating'
     const sortOrder = (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc'
 
-    // Get all spam domains to exclude
-    const spamDomains = await prisma.blockedDomain.findMany({
-      where: { type: 'SPAM' },
-      select: { domain: true },
+    // Category filters
+    const hideSpam = searchParams.get('hideSpam') === 'true'
+    const hideFreeAffiliate = searchParams.get('hideFreeAffiliate') === 'true'
+    const hideFreeLink = searchParams.get('hideFreeLink') === 'true'
+
+    // Get all blocked domains by category
+    const blockedDomains = await prisma.blockedDomain.findMany({
+      select: { domain: true, type: true },
     })
-    const spamDomainSet = new Set(spamDomains.map(d => d.domain.toLowerCase()))
+
+    const spamDomainSet = new Set<string>()
+    const freeAffiliateDomainSet = new Set<string>()
+    const freeLinkDomainSet = new Set<string>()
+    const domainCategoryMap = new Map<string, string>()
+
+    blockedDomains.forEach(d => {
+      const domain = d.domain.toLowerCase()
+      domainCategoryMap.set(domain, d.type)
+      if (d.type === 'SPAM') spamDomainSet.add(domain)
+      else if (d.type === 'FREE_AFFILIATE') freeAffiliateDomainSet.add(domain)
+      else if (d.type === 'FREE_LINK') freeLinkDomainSet.add(domain)
+    })
 
     // 1. Fetch all LinkDirectoryDomain entries
     const directoryDomains = await prisma.linkDirectoryDomain.findMany({
@@ -80,8 +96,10 @@ export async function GET(request: NextRequest) {
 
     // 3. Transform directory domains
     const transformedDirectoryDomains = directoryDomains
-      .filter(d => !spamDomainSet.has(d.rootDomain.toLowerCase()))
       .map((domain) => {
+        const domainLower = domain.rootDomain.toLowerCase()
+        const category = domainCategoryMap.get(domainLower) || null
+
         const brandMap = new Map<string, { id: string; name: string; count: number }>()
         let totalSpent = 0
         domain.backlinks.forEach((backlink) => {
@@ -122,13 +140,15 @@ export async function GET(request: NextRequest) {
           brands: Array.from(brandMap.values()),
           hasLiveBacklinks: domain.backlinks.length > 0,
           isFromBacklinks: false, // Explicit directory entry
+          category, // SPAM, FREE_AFFILIATE, FREE_LINK, or null
         }
       })
 
     // 4. Transform backlink-only domains (not in directory)
     const backlinksOnlyDomains = Array.from(backlinksByDomain.entries())
-      .filter(([domain]) => !spamDomainSet.has(domain))
       .map(([rootDomain, backlinks]) => {
+        const category = domainCategoryMap.get(rootDomain) || null
+
         const brandMap = new Map<string, { id: string; name: string; count: number }>()
         let totalSpent = 0
         let maxDr: number | null = null
@@ -178,13 +198,32 @@ export async function GET(request: NextRequest) {
           brands: Array.from(brandMap.values()),
           hasLiveBacklinks: true,
           isFromBacklinks: true, // From backlinks, not in directory
+          category, // SPAM, FREE_AFFILIATE, FREE_LINK, or null
         }
       })
 
     // 5. Combine all domains
     let allDomains = [...transformedDirectoryDomains, ...backlinksOnlyDomains]
 
-    // 6. Apply search filter
+    // Count hidden domains before filtering
+    const hiddenCounts = {
+      spam: allDomains.filter(d => d.category === 'SPAM').length,
+      freeAffiliate: allDomains.filter(d => d.category === 'FREE_AFFILIATE').length,
+      freeLink: allDomains.filter(d => d.category === 'FREE_LINK').length,
+    }
+
+    // 6. Apply category filters
+    if (hideSpam) {
+      allDomains = allDomains.filter(d => d.category !== 'SPAM')
+    }
+    if (hideFreeAffiliate) {
+      allDomains = allDomains.filter(d => d.category !== 'FREE_AFFILIATE')
+    }
+    if (hideFreeLink) {
+      allDomains = allDomains.filter(d => d.category !== 'FREE_LINK')
+    }
+
+    // 7. Apply search filter
     if (search) {
       const searchLower = search.toLowerCase()
       allDomains = allDomains.filter(d =>
@@ -194,7 +233,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // 7. Sort combined data
+    // 8. Sort combined data
     allDomains.sort((a, b) => {
       let aVal: number | string | Date | null = null
       let bVal: number | string | Date | null = null
@@ -241,12 +280,12 @@ export async function GET(request: NextRequest) {
       return sortOrder === 'asc' ? numA - numB : numB - numA
     })
 
-    // 8. Apply pagination
+    // 9. Apply pagination
     const total = allDomains.length
     const skip = (page - 1) * limit
     const paginatedDomains = allDomains.slice(skip, skip + limit)
 
-    // 9. Calculate stats
+    // 10. Calculate stats
     const totalDomains = allDomains.length
     const avgDr = allDomains.reduce((sum, d) => sum + (d.domainRating || 0), 0) / (totalDomains || 1)
     const contactedCount = allDomains.filter(d => d.contactedOn !== null).length
@@ -264,6 +303,7 @@ export async function GET(request: NextRequest) {
         contactedDomains: contactedCount,
         domainsWithBacklinks: withBacklinksCount,
       },
+      hiddenCounts,
     })
   } catch (error) {
     console.error('Error fetching link directory:', error)
