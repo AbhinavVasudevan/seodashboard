@@ -13,7 +13,7 @@ export async function GET(
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '50')
     const search = searchParams.get('search') || ''
-    const showFreeAffiliates = searchParams.get('showFreeAffiliates') === 'true'
+    const categoryFilter = searchParams.get('category') || '' // Filter by specific category
     const skip = (page - 1) * limit
 
     // Get categorized domains
@@ -32,23 +32,39 @@ export async function GET(
       else if (d.type === 'FREE_LINK') freeLinkDomains.add(d.domain)
     })
 
-    // Build list of domains to exclude
-    // Always exclude SPAM, optionally exclude FREE_AFFILIATE
-    const excludedDomains = Array.from(spamDomains)
-    if (!showFreeAffiliates) {
-      excludedDomains.push(...Array.from(freeAffiliateDomains))
+    // Build where clause based on category filter
+    let where: Record<string, unknown> = { brandId: id }
+
+    if (categoryFilter === 'FREE_AFFILIATE') {
+      // Show ONLY free affiliate backlinks
+      where = {
+        ...where,
+        rootDomain: { in: Array.from(freeAffiliateDomains) }
+      }
+    } else if (categoryFilter === 'FREE_LINK') {
+      // Show ONLY free link backlinks
+      where = {
+        ...where,
+        rootDomain: { in: Array.from(freeLinkDomains) }
+      }
+    } else {
+      // Default: exclude spam and free affiliates
+      const excludedDomains = [
+        ...Array.from(spamDomains),
+        ...Array.from(freeAffiliateDomains)
+      ]
+      if (excludedDomains.length > 0) {
+        where = {
+          ...where,
+          NOT: { rootDomain: { in: excludedDomains } }
+        }
+      }
     }
 
-    // Build where clause with search and blocked domain filter
-    const where = {
-      brandId: id,
-      // Exclude spam (and optionally free affiliates)
-      ...(excludedDomains.length > 0 && {
-        NOT: {
-          rootDomain: { in: excludedDomains }
-        }
-      }),
-      ...(search && {
+    // Add search filter
+    if (search) {
+      where = {
+        ...where,
         OR: [
           { rootDomain: { contains: search, mode: 'insensitive' as const } },
           { referringPageUrl: { contains: search, mode: 'insensitive' as const } },
@@ -56,7 +72,7 @@ export async function GET(
           { anchor: { contains: search, mode: 'insensitive' as const } },
           { referringPageTitle: { contains: search, mode: 'insensitive' as const } },
         ]
-      })
+      }
     }
 
     const [backlinks, total, stats] = await Promise.all([
@@ -81,6 +97,7 @@ export async function GET(
           linkType: true,
           content: true,
           firstSeen: true,
+          publishDate: true,
           price: true
         }
       }),
@@ -126,8 +143,9 @@ export async function GET(
       hiddenCounts: {
         spam: spamCount,
         freeAffiliate: freeAffiliateCount,
-        total: spamCount + (showFreeAffiliates ? 0 : freeAffiliateCount)
-      }
+        total: spamCount + freeAffiliateCount
+      },
+      categoryFilter
     })
   } catch (error) {
     console.error('Error fetching backlinks:', error)
@@ -157,6 +175,7 @@ export async function POST(
       platform,
       firstSeen,
       lastSeen,
+      publishDate,
       price,
       remarks
     } = body
@@ -184,6 +203,7 @@ export async function POST(
         platform: platform || null,
         firstSeen: firstSeen || null,
         lastSeen: lastSeen || null,
+        publishDate: publishDate ? new Date(publishDate) : null,
         price: price || null,
         remarks: remarks || null
       }
@@ -225,6 +245,7 @@ export async function PUT(
         platform: updateData.platform || null,
         firstSeen: updateData.firstSeen || null,
         lastSeen: updateData.lastSeen || null,
+        publishDate: updateData.publishDate ? new Date(updateData.publishDate) : null,
         price: updateData.price || null,
         remarks: updateData.remarks || null
       }

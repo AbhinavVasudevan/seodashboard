@@ -36,6 +36,7 @@ interface Backlink {
   platform: string | null
   firstSeen: string | null
   lastSeen: string | null
+  publishDate: string | null
   price: number | null
   remarks: string | null
   createdAt: string
@@ -86,6 +87,7 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
     anchor: '',
     linkType: 'dofollow',
     dr: '',
+    publishDate: '',
     price: '',
     remarks: ''
   })
@@ -100,7 +102,7 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [hiddenCounts, setHiddenCounts] = useState<HiddenCounts>({ spam: 0, freeAffiliate: 0, total: 0 })
-  const [showFreeAffiliates, setShowFreeAffiliates] = useState(false)
+  const [categoryFilter, setCategoryFilter] = useState<'FREE_AFFILIATE' | 'FREE_LINK' | ''>('')
   const [isBlocking, setIsBlocking] = useState<string | null>(null)
   const [showCategoryModal, setShowCategoryModal] = useState<{ domain: string } | null>(null)
   const [selectedDomains, setSelectedDomains] = useState<Set<string>>(new Set())
@@ -122,7 +124,7 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
 
   useEffect(() => {
     fetchBacklinks()
-  }, [resolvedParams.id, page, debouncedSearch, showFreeAffiliates])
+  }, [resolvedParams.id, page, debouncedSearch, categoryFilter])
 
   const fetchBrand = async () => {
     try {
@@ -140,8 +142,8 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
     setIsLoading(true)
     try {
       const searchParam = debouncedSearch ? `&search=${encodeURIComponent(debouncedSearch)}` : ''
-      const affiliateParam = showFreeAffiliates ? '&showFreeAffiliates=true' : ''
-      const response = await fetch(`/api/brands/${resolvedParams.id}/backlinks?page=${page}&limit=${limit}${searchParam}${affiliateParam}`)
+      const categoryParam = categoryFilter ? `&category=${categoryFilter}` : ''
+      const response = await fetch(`/api/brands/${resolvedParams.id}/backlinks?page=${page}&limit=${limit}${searchParam}${categoryParam}`)
       if (response.ok) {
         const data = await response.json()
         setBacklinks(data.backlinks)
@@ -166,6 +168,7 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
       anchor: '',
       linkType: 'dofollow',
       dr: '',
+      publishDate: '',
       price: '',
       remarks: ''
     })
@@ -180,6 +183,7 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
       anchor: backlink.anchor || '',
       linkType: backlink.linkType || 'dofollow',
       dr: backlink.dr?.toString() || '',
+      publishDate: backlink.publishDate ? new Date(backlink.publishDate).toISOString().split('T')[0] : '',
       price: backlink.price?.toString() || '',
       remarks: backlink.remarks || ''
     })
@@ -394,6 +398,7 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
         const platform = row['platform'] || null
         const firstSeen = row['first seen'] || null
         const lastSeen = row['last seen'] || null
+        const publishDate = row['publish date'] || row['published'] || null
         const price = row['price'] || ''
         const remarks = row['remarks'] || null
 
@@ -414,6 +419,7 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
             platform,
             firstSeen,
             lastSeen,
+            publishDate,
             price: price ? parseFloat(price.replace(/[$,]/g, '')) : null,
             remarks
           })
@@ -518,15 +524,18 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
             </div>
           </Link>
           <button
-            onClick={() => setShowFreeAffiliates(!showFreeAffiliates)}
-            className={`stat-card hover:shadow-md transition-all text-left ${showFreeAffiliates ? 'ring-2 ring-purple-500' : ''}`}
+            onClick={() => {
+              setCategoryFilter(categoryFilter === 'FREE_AFFILIATE' ? '' : 'FREE_AFFILIATE')
+              setPage(1)
+            }}
+            className={`stat-card hover:shadow-md transition-all text-left ${categoryFilter === 'FREE_AFFILIATE' ? 'ring-2 ring-purple-500' : ''}`}
           >
             <div className="flex items-center justify-between">
               <div>
                 <div className="stat-value text-purple-500">{hiddenCounts.freeAffiliate}</div>
-                <div className="stat-label">{showFreeAffiliates ? 'Free Affiliates (Shown)' : 'Free Affiliates'}</div>
+                <div className="stat-label">{categoryFilter === 'FREE_AFFILIATE' ? 'Viewing Free Affiliates' : 'Free Affiliates'}</div>
               </div>
-              <GiftIcon className={`h-5 w-5 text-purple-400 transition-opacity ${showFreeAffiliates ? 'opacity-100' : 'opacity-50'}`} />
+              <GiftIcon className={`h-5 w-5 text-purple-400 transition-opacity ${categoryFilter === 'FREE_AFFILIATE' ? 'opacity-100' : 'opacity-50'}`} />
             </div>
           </button>
         </div>
@@ -577,6 +586,28 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
             ) : (
               <span>Found {total} result{total !== 1 ? 's' : ''} for &quot;{debouncedSearch}&quot;</span>
             )}
+          </div>
+        )}
+
+        {/* Category Filter Banner */}
+        {categoryFilter && (
+          <div className="mb-4 p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <GiftIcon className="h-4 w-4 text-purple-500" />
+              <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                Showing {categoryFilter === 'FREE_AFFILIATE' ? 'Free Affiliate' : 'Free Link'} backlinks only ({total})
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                setCategoryFilter('')
+                setPage(1)
+              }}
+              className="text-xs text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1"
+            >
+              <XMarkIcon className="h-3.5 w-3.5" />
+              Clear filter
+            </button>
           </div>
         )}
 
@@ -661,6 +692,7 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
                       <th>Type</th>
                       <th>Content</th>
                       <th>First Seen</th>
+                      <th>Publish Date</th>
                       <th>Price</th>
                       <th></th>
                     </tr>
@@ -731,6 +763,9 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
                         </td>
                         <td className="cell-secondary text-xs whitespace-nowrap">
                           {backlink.firstSeen || '-'}
+                        </td>
+                        <td className="cell-secondary text-xs whitespace-nowrap">
+                          {backlink.publishDate ? new Date(backlink.publishDate).toLocaleDateString() : '-'}
                         </td>
                         <td className="cell-secondary whitespace-nowrap">
                           {backlink.price ? `$${backlink.price}` : '-'}
@@ -874,6 +909,15 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
                     min="0"
                     step="0.01"
                     placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="input-label">Publish Date</label>
+                  <input
+                    type="date"
+                    value={formData.publishDate}
+                    onChange={(e) => setFormData({...formData, publishDate: e.target.value})}
+                    className="input-field"
                   />
                 </div>
                 <div className="md:col-span-2">

@@ -172,6 +172,7 @@ model Backlink {
   platform             String?
   firstSeen            String?
   lastSeen             String?
+  publishDate          DateTime?      // When the backlink was published
   price                Float?
   remarks              String?
   createdAt            DateTime       @default(now())
