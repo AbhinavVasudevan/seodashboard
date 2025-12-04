@@ -63,7 +63,7 @@ export async function GET(
       prisma.backlink.findMany({
         where,
         orderBy: [
-          { dr: 'desc' },
+          { dr: { sort: 'desc', nulls: 'last' } },
           { createdAt: 'desc' }
         ],
         skip,
