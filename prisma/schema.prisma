@@ -444,3 +444,48 @@ enum BlockedDomainType {
   FREE_AFFILIATE // Affiliate sites linking for commission without payment - can toggle
   FREE_LINK      // Organic/natural links - visible but tagged
 }
+
+// ==========================================
+// EMAIL TEMPLATES & GMAIL INTEGRATION
+// ==========================================
+
+model EmailTemplate {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  subject     String
+  body        String   @db.Text
+  category    String?  // e.g., "outreach", "followup", "negotiation"
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("email_templates")
+}
+
+model GmailCredential {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  accessToken  String   @db.Text
+  refreshToken String   @db.Text
+  expiresAt    DateTime
+  email        String   // The Gmail address
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("gmail_credentials")
+}
+
+model EmailLog {
+  id           String   @id @default(cuid())
+  toEmail      String
+  subject      String
+  body         String   @db.Text
+  prospectId   String?
+  templateId   String?
+  sentAt       DateTime @default(now())
+  status       String   @default("sent") // sent, failed
+  errorMessage String?
+
+  @@index([prospectId])
+  @@map("email_logs")
+}

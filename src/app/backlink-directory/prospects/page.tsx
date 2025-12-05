@@ -13,7 +13,10 @@ import {
   CheckCircleIcon,
   ClockIcon,
   ExclamationCircleIcon,
-  InboxIcon
+  InboxIcon,
+  TagIcon,
+  PaperAirplaneIcon,
+  LinkIcon
 } from '@heroicons/react/24/outline'
 
 interface Prospect {
@@ -38,6 +41,21 @@ interface Prospect {
     brand: { id: string; name: string }
   }>
 }
+
+interface EmailTemplate {
+  id: string
+  name: string
+  subject: string
+  body: string
+  category: string | null
+  isDefault: boolean
+}
+
+const CATEGORY_OPTIONS = [
+  { value: 'SPAM', label: 'Spam', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' },
+  { value: 'FREE_LINK', label: 'Free Link', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
+  { value: 'FREE_AFFILIATE', label: 'Free Affiliate', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' },
+]
 
 const STATUS_OPTIONS = [
   { value: 'NOT_CONTACTED', label: 'Not Contacted', color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300', icon: ClockIcon },
@@ -80,12 +98,102 @@ export default function ProspectsPage() {
     source: 'manual'
   })
 
+  // Tag modal state
+  const [showTagModal, setShowTagModal] = useState(false)
+  const [tagProspect, setTagProspect] = useState<Prospect | null>(null)
+  const [selectedCategory, setSelectedCategory] = useState('')
+
+  // Email modal state
+  const [showEmailModal, setShowEmailModal] = useState(false)
+  const [emailProspect, setEmailProspect] = useState<Prospect | null>(null)
+  const [emailTemplates, setEmailTemplates] = useState<EmailTemplate[]>([])
+  const [selectedTemplate, setSelectedTemplate] = useState('')
+  const [emailForm, setEmailForm] = useState({
+    to: '',
+    subject: '',
+    body: ''
+  })
+  const [sendingEmail, setSendingEmail] = useState(false)
+
+  // Gmail connection state
+  const [gmailConnected, setGmailConnected] = useState(false)
+  const [gmailEmail, setGmailEmail] = useState('')
+  const [checkingGmail, setCheckingGmail] = useState(true)
+
   // Get unique sources for filter
   const uniqueSources = Array.from(new Set(prospects.map(p => p.source).filter(Boolean)))
 
   useEffect(() => {
     fetchProspects()
   }, [statusFilter])
+
+  // Check Gmail connection on mount
+  useEffect(() => {
+    checkGmailConnection()
+    fetchEmailTemplates()
+    // Check URL params for Gmail connection result
+    const params = new URLSearchParams(window.location.search)
+    const connected = params.get('gmail_connected')
+    const error = params.get('gmail_error')
+    if (connected) {
+      setGmailConnected(true)
+      setGmailEmail(connected)
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+    if (error) {
+      alert(`Gmail connection failed: ${error}`)
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [])
+
+  const checkGmailConnection = async () => {
+    try {
+      setCheckingGmail(true)
+      const response = await fetch('/api/gmail')
+      const data = await response.json()
+      setGmailConnected(data.connected)
+      setGmailEmail(data.email || '')
+    } catch (error) {
+      console.error('Error checking Gmail:', error)
+    } finally {
+      setCheckingGmail(false)
+    }
+  }
+
+  const connectGmail = async () => {
+    try {
+      const response = await fetch('/api/gmail?action=auth-url')
+      const data = await response.json()
+      if (data.authUrl) {
+        window.location.href = data.authUrl
+      }
+    } catch (error) {
+      console.error('Error getting auth URL:', error)
+      alert('Failed to connect Gmail')
+    }
+  }
+
+  const disconnectGmail = async () => {
+    if (!confirm('Are you sure you want to disconnect Gmail?')) return
+    try {
+      await fetch('/api/gmail', { method: 'DELETE' })
+      setGmailConnected(false)
+      setGmailEmail('')
+    } catch (error) {
+      console.error('Error disconnecting Gmail:', error)
+    }
+  }
+
+  const fetchEmailTemplates = async () => {
+    try {
+      const response = await fetch('/api/email-templates')
+      const data = await response.json()
+      setEmailTemplates(data)
+    } catch (error) {
+      console.error('Error fetching templates:', error)
+    }
+  }
 
   const fetchProspects = async () => {
     try {
@@ -292,6 +400,138 @@ export default function ProspectsPage() {
     return 'text-foreground'
   }
 
+  // Tag handlers
+  const openTagModal = (prospect: Prospect) => {
+    setTagProspect(prospect)
+    setSelectedCategory('')
+    setShowTagModal(true)
+  }
+
+  const handleTagDomain = async () => {
+    if (!tagProspect || !selectedCategory) return
+
+    try {
+      // Add domain to blocked domains
+      const response = await fetch('/api/blocked-domains', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          domain: tagProspect.rootDomain,
+          type: selectedCategory,
+          reason: `Tagged from prospects - ${tagProspect.referringPageUrl}`
+        })
+      })
+
+      if (response.ok) {
+        // Delete the prospect since it's now categorized
+        await fetch(`/api/backlink-prospects?id=${tagProspect.id}`, {
+          method: 'DELETE'
+        })
+        setShowTagModal(false)
+        setTagProspect(null)
+        fetchProspects()
+      } else {
+        const error = await response.json()
+        alert(error.error || 'Failed to tag domain')
+      }
+    } catch (error) {
+      console.error('Error tagging domain:', error)
+      alert('Failed to tag domain')
+    }
+  }
+
+  // Email handlers
+  const openEmailModal = (prospect: Prospect) => {
+    setEmailProspect(prospect)
+    setEmailForm({
+      to: prospect.contactEmail || '',
+      subject: '',
+      body: ''
+    })
+    setSelectedTemplate('')
+    setShowEmailModal(true)
+  }
+
+  const handleTemplateSelect = (templateId: string) => {
+    setSelectedTemplate(templateId)
+    const template = emailTemplates.find(t => t.id === templateId)
+    if (template) {
+      // Replace placeholders in template
+      let subject = template.subject
+      let body = template.body
+
+      if (emailProspect) {
+        subject = subject.replace(/\{domain\}/g, emailProspect.rootDomain)
+        body = body.replace(/\{domain\}/g, emailProspect.rootDomain)
+        body = body.replace(/\{url\}/g, emailProspect.referringPageUrl)
+      }
+
+      setEmailForm(prev => ({
+        ...prev,
+        subject,
+        body
+      }))
+    }
+  }
+
+  const handleSendEmail = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!emailForm.to || !emailForm.subject || !emailForm.body) {
+      alert('Please fill in all fields')
+      return
+    }
+
+    if (!gmailConnected) {
+      alert('Please connect your Gmail account first')
+      return
+    }
+
+    try {
+      setSendingEmail(true)
+      const response = await fetch('/api/gmail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: emailForm.to,
+          subject: emailForm.subject,
+          body: emailForm.body,
+          prospectId: emailProspect?.id,
+          templateId: selectedTemplate || undefined
+        })
+      })
+
+      if (response.ok) {
+        // Update prospect status to contacted
+        if (emailProspect) {
+          await fetch('/api/backlink-prospects', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: emailProspect.id,
+              status: 'CONTACTED',
+              contactedOn: new Date().toISOString().split('T')[0],
+              contactMethod: 'EMAIL',
+              contactEmail: emailForm.to
+            })
+          })
+        }
+        setShowEmailModal(false)
+        setEmailProspect(null)
+        fetchProspects()
+        alert('Email sent successfully!')
+      } else {
+        const error = await response.json()
+        alert(error.error || 'Failed to send email')
+      }
+    } catch (error) {
+      console.error('Error sending email:', error)
+      alert('Failed to send email')
+    } finally {
+      setSendingEmail(false)
+    }
+  }
+
   return (
     <div className="page-container">
       {/* Page Header */}
@@ -306,13 +546,40 @@ export default function ProspectsPage() {
               <p className="text-sm text-muted-foreground">Manage and track your outreach efforts</p>
             </div>
           </div>
-          <button
-            onClick={() => { resetForm(); setShowModal(true) }}
-            className="btn-primary"
-          >
-            <PlusIcon className="h-4 w-4" />
-            Add Prospect
-          </button>
+          <div className="flex items-center gap-3">
+            {/* Gmail Connection Status */}
+            {checkingGmail ? (
+              <span className="text-sm text-muted-foreground">Checking Gmail...</span>
+            ) : gmailConnected ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 px-2 py-1 rounded-full flex items-center gap-1">
+                  <CheckCircleIcon className="h-3 w-3" />
+                  {gmailEmail}
+                </span>
+                <button
+                  onClick={disconnectGmail}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Disconnect
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={connectGmail}
+                className="btn-secondary text-sm"
+              >
+                <LinkIcon className="h-4 w-4" />
+                Connect Gmail
+              </button>
+            )}
+            <button
+              onClick={() => { resetForm(); setShowModal(true) }}
+              className="btn-primary"
+            >
+              <PlusIcon className="h-4 w-4" />
+              Add Prospect
+            </button>
+          </div>
         </div>
       </div>
 
@@ -508,6 +775,20 @@ export default function ProspectsPage() {
                           <td className="whitespace-nowrap">
                             <div className="flex gap-1">
                               <button
+                                onClick={() => openTagModal(prospect)}
+                                className="action-btn text-orange-600 hover:text-orange-700"
+                                title="Tag as Spam/Free"
+                              >
+                                <TagIcon className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => openEmailModal(prospect)}
+                                className="action-btn text-blue-600 hover:text-blue-700"
+                                title="Send Email"
+                              >
+                                <PaperAirplaneIcon className="h-4 w-4" />
+                              </button>
+                              <button
                                 onClick={() => openEditModal(prospect)}
                                 className="action-btn"
                                 title="Edit"
@@ -696,6 +977,196 @@ export default function ProspectsPage() {
                 </button>
                 <button type="submit" className="btn-primary">
                   {editingProspect ? 'Update' : 'Add'} Prospect
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Tag Modal */}
+      {showTagModal && tagProspect && (
+        <div className="modal-overlay">
+          <div className="modal-content max-w-md">
+            <div className="modal-header">
+              <h3 className="modal-title">Tag Domain</h3>
+              <button onClick={() => setShowTagModal(false)} className="action-btn">
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="modal-body">
+              <p className="text-sm text-muted-foreground mb-4">
+                Tag <strong className="text-foreground">{tagProspect.rootDomain}</strong> as:
+              </p>
+              <div className="space-y-2">
+                {CATEGORY_OPTIONS.map(option => (
+                  <button
+                    key={option.value}
+                    onClick={() => setSelectedCategory(option.value)}
+                    className={`w-full px-4 py-3 rounded-lg border text-left transition-all ${
+                      selectedCategory === option.value
+                        ? 'border-primary bg-primary/10'
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                  >
+                    <span className={`inline-flex px-2 py-0.5 rounded text-xs ${option.color}`}>
+                      {option.label}
+                    </span>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {option.value === 'SPAM' && 'Black hat SEO, link farms, PBNs - always hidden'}
+                      {option.value === 'FREE_LINK' && 'Organic/natural links - visible but tagged'}
+                      {option.value === 'FREE_AFFILIATE' && 'Affiliate sites linking without payment'}
+                    </p>
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground mt-4">
+                This will remove the prospect and add the domain to the blocked list.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button
+                onClick={() => setShowTagModal(false)}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleTagDomain}
+                disabled={!selectedCategory}
+                className="btn-primary"
+              >
+                <TagIcon className="h-4 w-4" />
+                Tag Domain
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Email Modal */}
+      {showEmailModal && emailProspect && (
+        <div className="modal-overlay">
+          <div className="modal-content max-w-2xl max-h-[90vh] flex flex-col">
+            <div className="modal-header flex-shrink-0">
+              <h3 className="modal-title">Send Email</h3>
+              <button onClick={() => setShowEmailModal(false)} className="action-btn">
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSendEmail} className="flex flex-col flex-1 overflow-hidden">
+              <div className="modal-body overflow-y-auto flex-1">
+                <div className="space-y-4">
+                  <div className="bg-muted/30 rounded-lg p-3 text-sm">
+                    <div className="font-medium">{emailProspect.rootDomain}</div>
+                    <a
+                      href={emailProspect.referringPageUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-primary hover:underline"
+                    >
+                      {emailProspect.referringPageUrl}
+                    </a>
+                  </div>
+
+                  {!gmailConnected && (
+                    <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
+                      <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                        Connect your Gmail account to send emails directly from here.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={connectGmail}
+                        className="btn-primary mt-2 text-sm"
+                      >
+                        <LinkIcon className="h-4 w-4" />
+                        Connect Gmail
+                      </button>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="input-label">To *</label>
+                    <input
+                      type="email"
+                      value={emailForm.to}
+                      onChange={(e) => setEmailForm({ ...emailForm, to: e.target.value })}
+                      className="input-field"
+                      placeholder="contact@example.com"
+                      required
+                    />
+                  </div>
+
+                  {emailTemplates.length > 0 && (
+                    <div>
+                      <label className="input-label">Template</label>
+                      <select
+                        value={selectedTemplate}
+                        onChange={(e) => handleTemplateSelect(e.target.value)}
+                        className="input-field"
+                      >
+                        <option value="">Select a template...</option>
+                        {emailTemplates.map(template => (
+                          <option key={template.id} value={template.id}>
+                            {template.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="input-label">Subject *</label>
+                    <input
+                      type="text"
+                      value={emailForm.subject}
+                      onChange={(e) => setEmailForm({ ...emailForm, subject: e.target.value })}
+                      className="input-field"
+                      placeholder="Subject line..."
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="input-label">Body *</label>
+                    <textarea
+                      value={emailForm.body}
+                      onChange={(e) => setEmailForm({ ...emailForm, body: e.target.value })}
+                      className="input-field font-mono text-sm"
+                      rows={10}
+                      placeholder="Email body... You can use HTML."
+                      required
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Placeholders: {'{domain}'}, {'{url}'} will be replaced with prospect data
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowEmailModal(false)}
+                  className="btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={sendingEmail || !gmailConnected}
+                  className="btn-primary"
+                >
+                  {sendingEmail ? (
+                    <>
+                      <div className="spinner-sm border-white/30 border-t-white"></div>
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <PaperAirplaneIcon className="h-4 w-4" />
+                      Send Email
+                    </>
+                  )}
                 </button>
               </div>
             </form>
