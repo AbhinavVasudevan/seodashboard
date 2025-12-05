@@ -748,154 +748,117 @@ export default function LinkDirectoryPage() {
                                   <span className="ml-2 text-muted-foreground">Loading details...</span>
                                 </div>
                               ) : domainDetails[domain.id] ? (
-                                <div className="p-4 space-y-4">
-                                  {/* Summary Stats Row */}
-                                  <div className="flex items-center gap-6 flex-wrap">
-                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-card rounded-lg border border-border">
-                                      <span className="text-xs text-muted-foreground">Total Backlinks:</span>
-                                      <span className="text-sm font-semibold text-foreground">{domainDetails[domain.id].stats?.totalBacklinks ?? domain.totalBacklinks}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-card rounded-lg border border-border">
-                                      <span className="text-xs text-muted-foreground">Brands:</span>
-                                      <span className="text-sm font-semibold text-foreground">{domainDetails[domain.id].stats?.totalBrands ?? domain.brands.length}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-card rounded-lg border border-border">
-                                      <span className="text-xs text-muted-foreground">Total Spent:</span>
-                                      <span className="text-sm font-semibold text-green-600 dark:text-green-400">${(domainDetails[domain.id].stats?.totalSpent ?? domain.totalSpent).toFixed(2)}</span>
-                                    </div>
+                                <div className="p-3 space-y-3">
+                                  {/* Summary Stats Row - Compact */}
+                                  <div className="flex items-center gap-4 text-xs flex-wrap">
+                                    <span className="text-muted-foreground">
+                                      <span className="font-medium text-foreground">{domainDetails[domain.id].stats?.totalBacklinks ?? domain.totalBacklinks}</span> backlinks
+                                    </span>
+                                    <span className="text-muted-foreground">
+                                      <span className="font-medium text-foreground">{domainDetails[domain.id].stats?.totalBrands ?? domain.brands.length}</span> brands
+                                    </span>
+                                    <span className="text-muted-foreground">
+                                      Spent: <span className="font-medium text-green-600 dark:text-green-400">${(domainDetails[domain.id].stats?.totalSpent ?? domain.totalSpent).toFixed(2)}</span>
+                                    </span>
                                     {domainDetails[domain.id].currentPrice && (
-                                      <div className="flex items-center gap-2 px-3 py-1.5 bg-card rounded-lg border border-border">
-                                        <span className="text-xs text-muted-foreground">Current Price:</span>
-                                        <span className="text-sm font-semibold text-primary">${domainDetails[domain.id].currentPrice}</span>
-                                      </div>
+                                      <span className="text-muted-foreground">
+                                        Price: <span className="font-medium text-primary">${domainDetails[domain.id].currentPrice}</span>
+                                      </span>
                                     )}
                                     {domainDetails[domain.id].supplierName && (
-                                      <div className="flex items-center gap-2 px-3 py-1.5 bg-card rounded-lg border border-border">
-                                        <span className="text-xs text-muted-foreground">Supplier:</span>
-                                        <span className="text-sm text-foreground">{domainDetails[domain.id].supplierName}</span>
-                                      </div>
+                                      <span className="text-muted-foreground">
+                                        Supplier: <span className="text-foreground">{domainDetails[domain.id].supplierName}</span>
+                                      </span>
                                     )}
                                   </div>
 
-                                  {/* Backlinks by Brand - Table Format */}
-                                  <div className="space-y-4">
-                                    {(domainDetails[domain.id].backlinksByBrand || []).length > 0 ? (
-                                      domainDetails[domain.id].backlinksByBrand.map(brandGroup => (
-                                      <div key={brandGroup.brand.id} className="bg-card rounded-lg border border-border overflow-hidden">
-                                        {/* Brand Header */}
-                                        <div className="flex items-center justify-between px-4 py-3 bg-muted/50 border-b border-border">
-                                          <div className="flex items-center gap-3">
-                                            <span className="badge-purple">{brandGroup.brand.name}</span>
-                                            <span className="text-xs text-muted-foreground">
-                                              {brandGroup.backlinks.length} {brandGroup.backlinks.length === 1 ? 'backlink' : 'backlinks'}
-                                            </span>
-                                          </div>
-                                          {brandGroup.totalSpent > 0 && (
-                                            <span className="text-sm text-green-600 dark:text-green-400 font-medium">
-                                              ${brandGroup.totalSpent.toFixed(2)} spent
-                                            </span>
-                                          )}
-                                        </div>
-
-                                        {/* Backlinks Table */}
-                                        <div className="overflow-x-auto">
-                                          <table className="w-full text-sm">
-                                            <thead className="bg-muted/30">
-                                              <tr>
-                                                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Referring Page</th>
-                                                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Target URL</th>
-                                                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Anchor</th>
-                                                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Type</th>
-                                                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">DR</th>
-                                                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Price</th>
-                                                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Published</th>
+                                  {/* Backlinks - Compact Single Table */}
+                                  {(domainDetails[domain.id].backlinksByBrand || []).length > 0 ? (
+                                    <div className="bg-card rounded-lg border border-border overflow-hidden">
+                                      <table className="w-full text-xs">
+                                        <thead className="bg-muted/50">
+                                          <tr>
+                                            <th className="px-2 py-1.5 text-left font-medium text-muted-foreground">Brand</th>
+                                            <th className="px-2 py-1.5 text-left font-medium text-muted-foreground">Referring Page</th>
+                                            <th className="px-2 py-1.5 text-left font-medium text-muted-foreground">Target</th>
+                                            <th className="px-2 py-1.5 text-left font-medium text-muted-foreground">Anchor</th>
+                                            <th className="px-2 py-1.5 text-left font-medium text-muted-foreground">Type</th>
+                                            <th className="px-2 py-1.5 text-left font-medium text-muted-foreground">DR</th>
+                                            <th className="px-2 py-1.5 text-left font-medium text-muted-foreground">Price</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-border">
+                                          {domainDetails[domain.id].backlinksByBrand.flatMap(brandGroup =>
+                                            brandGroup.backlinks.map(backlink => (
+                                              <tr key={backlink.id} className="hover:bg-muted/20">
+                                                <td className="px-2 py-1.5 whitespace-nowrap">
+                                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                                                    {brandGroup.brand.name}
+                                                  </span>
+                                                </td>
+                                                <td className="px-2 py-1.5 max-w-[180px]">
+                                                  <a
+                                                    href={backlink.referringPageUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-primary hover:underline truncate block"
+                                                    title={backlink.referringPageUrl}
+                                                  >
+                                                    {backlink.referringPageUrl.replace(/^https?:\/\/(www\.)?/, '').slice(0, 35)}...
+                                                  </a>
+                                                </td>
+                                                <td className="px-2 py-1.5 max-w-[140px]">
+                                                  <a
+                                                    href={backlink.targetUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-muted-foreground hover:text-foreground truncate block"
+                                                    title={backlink.targetUrl}
+                                                  >
+                                                    {backlink.targetUrl.replace(/^https?:\/\/(www\.)?/, '').slice(0, 25)}...
+                                                  </a>
+                                                </td>
+                                                <td className="px-2 py-1.5 max-w-[100px] text-muted-foreground truncate" title={backlink.anchor || ''}>
+                                                  {backlink.anchor || '-'}
+                                                </td>
+                                                <td className="px-2 py-1.5 whitespace-nowrap">
+                                                  {backlink.linkType ? (
+                                                    <span className={`text-[10px] px-1 py-0.5 rounded ${getLinkTypeBadge(backlink.linkType)}`}>
+                                                      {backlink.linkType}
+                                                    </span>
+                                                  ) : '-'}
+                                                </td>
+                                                <td className={`px-2 py-1.5 whitespace-nowrap ${getDRColor(backlink.dr)}`}>
+                                                  {backlink.dr || '-'}
+                                                </td>
+                                                <td className="px-2 py-1.5 whitespace-nowrap">
+                                                  {backlink.price ? (
+                                                    <span className="text-green-600 dark:text-green-400">${backlink.price}</span>
+                                                  ) : '-'}
+                                                </td>
                                               </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-border">
-                                              {brandGroup.backlinks.map(backlink => (
-                                                <tr key={backlink.id} className="hover:bg-muted/20 transition-colors">
-                                                  <td className="px-3 py-2.5 max-w-[200px]">
-                                                    <a
-                                                      href={backlink.referringPageUrl}
-                                                      target="_blank"
-                                                      rel="noopener noreferrer"
-                                                      className="text-xs text-primary hover:underline truncate block"
-                                                      title={backlink.referringPageTitle || backlink.referringPageUrl}
-                                                    >
-                                                      {backlink.referringPageUrl.replace(/^https?:\/\//, '').slice(0, 40)}...
-                                                    </a>
-                                                  </td>
-                                                  <td className="px-3 py-2.5 max-w-[180px]">
-                                                    <a
-                                                      href={backlink.targetUrl}
-                                                      target="_blank"
-                                                      rel="noopener noreferrer"
-                                                      className="text-xs text-muted-foreground hover:text-foreground truncate block"
-                                                      title={backlink.targetUrl}
-                                                    >
-                                                      {backlink.targetUrl.replace(/^https?:\/\//, '').slice(0, 35)}...
-                                                    </a>
-                                                  </td>
-                                                  <td className="px-3 py-2.5 max-w-[120px]">
-                                                    <span className="text-xs text-muted-foreground truncate block" title={backlink.anchor || ''}>
-                                                      {backlink.anchor || '-'}
-                                                    </span>
-                                                  </td>
-                                                  <td className="px-3 py-2.5 whitespace-nowrap">
-                                                    {backlink.linkType ? (
-                                                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${getLinkTypeBadge(backlink.linkType)}`}>
-                                                        {backlink.linkType}
-                                                      </span>
-                                                    ) : (
-                                                      <span className="text-xs text-muted-foreground">-</span>
-                                                    )}
-                                                  </td>
-                                                  <td className="px-3 py-2.5 whitespace-nowrap">
-                                                    <span className={`text-xs ${getDRColor(backlink.dr)}`}>
-                                                      {backlink.dr || '-'}
-                                                    </span>
-                                                  </td>
-                                                  <td className="px-3 py-2.5 whitespace-nowrap">
-                                                    {backlink.price ? (
-                                                      <span className="text-xs text-green-600 dark:text-green-400 font-medium">
-                                                        ${backlink.price}
-                                                      </span>
-                                                    ) : (
-                                                      <span className="text-xs text-muted-foreground">-</span>
-                                                    )}
-                                                  </td>
-                                                  <td className="px-3 py-2.5 whitespace-nowrap">
-                                                    <span className="text-xs text-muted-foreground">
-                                                      {backlink.publishDate ? new Date(backlink.publishDate).toLocaleDateString() : '-'}
-                                                    </span>
-                                                  </td>
-                                                </tr>
-                                              ))}
-                                            </tbody>
-                                          </table>
-                                        </div>
-                                      </div>
-                                    ))
-                                    ) : (
-                                      <div className="text-center text-muted-foreground py-6 bg-card rounded-lg border border-border">
-                                        No backlink details available for this domain
-                                      </div>
-                                    )}
-                                  </div>
+                                            ))
+                                          )}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  ) : (
+                                    <div className="text-center text-muted-foreground py-4 text-xs">
+                                      No backlink details available
+                                    </div>
+                                  )}
 
-                                  {/* Price History */}
+                                  {/* Price History - Compact */}
                                   {domainDetails[domain.id].priceHistory?.length > 0 && (
-                                    <div className="pt-3 border-t border-border">
-                                      <div className="text-xs font-medium text-muted-foreground mb-2">Price History</div>
-                                      <div className="flex flex-wrap gap-2">
-                                        {domainDetails[domain.id].priceHistory.slice(0, 5).map((ph: PriceHistory) => (
-                                          <div key={ph.id} className="text-xs px-3 py-1.5 rounded-lg bg-card border border-border flex items-center gap-2">
-                                            <span className="text-green-600 dark:text-green-400 font-medium">${ph.price}</span>
-                                            <span className="text-muted-foreground">{new Date(ph.effectiveFrom).toLocaleDateString()}</span>
-                                            {ph.notes && <span className="text-muted-foreground/60">({ph.notes})</span>}
-                                          </div>
-                                        ))}
-                                      </div>
+                                    <div className="flex items-center gap-2 text-xs pt-2 border-t border-border">
+                                      <span className="text-muted-foreground">Price history:</span>
+                                      {domainDetails[domain.id].priceHistory.slice(0, 4).map((ph: PriceHistory) => (
+                                        <span key={ph.id} className="px-2 py-0.5 rounded bg-muted text-muted-foreground">
+                                          <span className="text-green-600 dark:text-green-400">${ph.price}</span>
+                                          <span className="mx-1">·</span>
+                                          {new Date(ph.effectiveFrom).toLocaleDateString()}
+                                        </span>
+                                      ))}
                                     </div>
                                   )}
                                 </div>

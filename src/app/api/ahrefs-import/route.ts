@@ -1,12 +1,34 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
-// Helper to extract root domain from URL
+// Helper to extract root domain from URL (handles subdomains like apps.apple.com -> apple.com)
 function extractRootDomain(url: string): string {
   try {
     const parsed = new URL(url)
-    // Remove www. prefix for consistent matching
-    return parsed.hostname.replace(/^www\./, '').toLowerCase()
+    let hostname = parsed.hostname.replace(/^www\./, '').toLowerCase()
+
+    // List of known multi-part TLDs
+    const multiPartTlds = [
+      'co.uk', 'com.au', 'co.nz', 'co.za', 'com.br', 'co.jp', 'co.kr',
+      'com.mx', 'com.sg', 'com.hk', 'co.in', 'com.tw', 'com.ar', 'com.tr'
+    ]
+
+    // Check if it ends with a multi-part TLD
+    for (const tld of multiPartTlds) {
+      if (hostname.endsWith('.' + tld)) {
+        // Extract: domain.co.uk from subdomain.domain.co.uk
+        const parts = hostname.slice(0, -(tld.length + 1)).split('.')
+        return parts[parts.length - 1] + '.' + tld
+      }
+    }
+
+    // Standard single TLD: extract last two parts (domain.com from subdomain.domain.com)
+    const parts = hostname.split('.')
+    if (parts.length >= 2) {
+      return parts.slice(-2).join('.')
+    }
+
+    return hostname
   } catch {
     return url.toLowerCase()
   }
@@ -79,6 +101,14 @@ export async function POST(request: Request) {
       existingBacklinkDomains.set(domain, brands)
     })
 
+    // 1b. Also get domains from LinkDirectoryDomain (even without backlinks)
+    const directoryDomains = await prisma.linkDirectoryDomain.findMany({
+      select: { rootDomain: true }
+    })
+    const directoryDomainSet = new Set(
+      directoryDomains.map(d => d.rootDomain.toLowerCase().replace(/^www\./, ''))
+    )
+
     // 2. Get existing prospect URLs and domains
     const existingProspects = await prisma.backlinkProspect.findMany({
       select: { referringPageUrl: true, rootDomain: true, status: true }
@@ -126,6 +156,11 @@ export async function POST(request: Request) {
       if (existingBacklinkDomains.has(rootDomain)) {
         status = 'already_have'
         existingBrands = existingBacklinkDomains.get(rootDomain)
+        alreadyHave++
+      } else if (directoryDomainSet.has(rootDomain)) {
+        // Domain is in our Link Directory (even without backlinks)
+        status = 'already_have'
+        existingBrands = ['In Directory']
         alreadyHave++
       } else if (existingProspectDomains.has(rootDomain) || existingProspectUrls.has(url)) {
         status = 'in_prospects'
