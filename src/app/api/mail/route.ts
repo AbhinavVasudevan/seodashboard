@@ -42,7 +42,7 @@ export async function GET(request: Request) {
           where: {
             userId: session.user.id,
             isArchived: false,
-            messages: { some: { direction: 'INBOUND' } }
+            hasInbound: true
           }
         }),
         // Unread inbox threads
@@ -51,7 +51,7 @@ export async function GET(request: Request) {
             userId: session.user.id,
             isArchived: false,
             isRead: false,
-            messages: { some: { direction: 'INBOUND' } }
+            hasInbound: true
           }
         }),
         prisma.emailThread.count({ where: { userId: session.user.id, isStarred: true } }),
@@ -61,7 +61,7 @@ export async function GET(request: Request) {
         prisma.emailThread.count({
           where: {
             userId: session.user.id,
-            messages: { some: { direction: 'OUTBOUND' } }
+            hasOutbound: true
           }
         })
       ])

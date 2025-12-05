@@ -235,19 +235,89 @@ function getHeader(headers: GmailMessageHeader[] | undefined, name: string): str
   return header?.value || ''
 }
 
-// Extract email address from "Name <email>" format
+// Extract email address from various formats:
+// - "Name <email@domain.com>"
+// - "<email@domain.com>"
+// - "email@domain.com"
+// - "Name" <email@domain.com>
 function parseEmailAddress(raw: string): { email: string; name: string | null } {
-  const match = raw.match(/^(?:"?([^"<]*)"?\s*)?<?([^>]+@[^>]+)>?$/)
-  if (match) {
-    return { name: match[1]?.trim() || null, email: match[2].trim() }
+  if (!raw || raw.trim() === '') {
+    return { name: null, email: '' }
   }
-  return { name: null, email: raw.trim() }
+
+  const trimmed = raw.trim()
+
+  // Try to extract email from angle brackets: anything <email>
+  const angleMatch = trimmed.match(/<([^<>]+@[^<>]+)>/)
+  if (angleMatch) {
+    const email = angleMatch[1].trim().toLowerCase()
+    // Get name from before the angle bracket
+    const namePart = trimmed.substring(0, trimmed.indexOf('<')).trim()
+    // Remove surrounding quotes from name
+    const name = namePart.replace(/^["']|["']$/g, '').trim() || null
+    return { email, name }
+  }
+
+  // Check if it's just an email address
+  const emailOnlyMatch = trimmed.match(/^([^\s<>]+@[^\s<>]+)$/)
+  if (emailOnlyMatch) {
+    return { email: emailOnlyMatch[1].toLowerCase(), name: null }
+  }
+
+  // Fallback: return as-is (might be malformed)
+  if (trimmed.includes('@')) {
+    return { email: trimmed.toLowerCase(), name: null }
+  }
+
+  return { name: trimmed, email: '' }
 }
 
-// Parse multiple email addresses (comma separated)
+// Parse multiple email addresses (comma or semicolon separated)
 function parseEmailAddresses(raw: string): string[] {
-  if (!raw) return []
-  return raw.split(',').map(e => parseEmailAddress(e.trim()).email).filter(Boolean)
+  if (!raw || raw.trim() === '') return []
+
+  // Split by comma or semicolon, handling quoted names with commas
+  const addresses: string[] = []
+  let current = ''
+  let inQuotes = false
+  let inAngle = false
+
+  for (const char of raw) {
+    if (char === '"' || char === "'") {
+      inQuotes = !inQuotes
+      current += char
+    } else if (char === '<') {
+      inAngle = true
+      current += char
+    } else if (char === '>') {
+      inAngle = false
+      current += char
+    } else if ((char === ',' || char === ';') && !inQuotes && !inAngle) {
+      if (current.trim()) {
+        addresses.push(current.trim())
+      }
+      current = ''
+    } else {
+      current += char
+    }
+  }
+  if (current.trim()) {
+    addresses.push(current.trim())
+  }
+
+  return addresses
+    .map(addr => parseEmailAddress(addr).email)
+    .filter(email => email && email.includes('@'))
+}
+
+// Normalize email for comparison (lowercase, trim)
+function normalizeEmail(email: string): string {
+  return (email || '').trim().toLowerCase()
+}
+
+// Check if two emails match (case-insensitive)
+function emailsMatch(email1: string, email2: string): boolean {
+  return normalizeEmail(email1) === normalizeEmail(email2)
 }
 
 // Get message body (HTML or plain text)
@@ -600,11 +670,16 @@ export async function syncEmailThreads({
       const hasUnread = messages.some(m => m.labels.includes('UNREAD'))
       const unreadCount = messages.filter(m => m.labels.includes('UNREAD')).length
 
+      // Calculate direction flags for filtering
+      const hasInbound = messages.some(m => !emailsMatch(m.from, userEmail))
+      const hasOutbound = messages.some(m => emailsMatch(m.from, userEmail))
+      const lastMessageDirection = emailsMatch(lastMessage.from, userEmail) ? 'OUTBOUND' : 'INBOUND'
+
       // Try to match with prospect by email
       let prospectId: string | undefined
       let linkDirectoryDomainId: string | undefined
 
-      const externalEmails = Array.from(participants).filter(e => e !== userEmail)
+      const externalEmails = Array.from(participants).filter(e => !emailsMatch(e, userEmail))
       for (const email of externalEmails) {
         // Try to find prospect by contact email
         const prospect = await prisma.backlinkProspect.findFirst({
@@ -642,6 +717,11 @@ export async function syncEmailThreads({
           subject: firstMessage.subject,
           snippet: threadData.snippet || '',
           participants: Array.from(participants),
+          hasInbound,
+          hasOutbound,
+          lastDirection: lastMessageDirection,
+          lastSenderEmail: lastMessage.from,
+          lastSenderName: lastMessage.fromName,
           isRead: !hasUnread,
           messageCount: messages.length,
           unreadCount,
@@ -651,8 +731,14 @@ export async function syncEmailThreads({
           linkDirectoryDomainId
         },
         update: {
+          subject: firstMessage.subject,
           snippet: threadData.snippet || '',
           participants: Array.from(participants),
+          hasInbound,
+          hasOutbound,
+          lastDirection: lastMessageDirection,
+          lastSenderEmail: lastMessage.from,
+          lastSenderName: lastMessage.fromName,
           isRead: !hasUnread,
           messageCount: messages.length,
           unreadCount,
@@ -664,7 +750,8 @@ export async function syncEmailThreads({
 
       // Upsert messages
       for (const msg of messages) {
-        const direction = msg.from === userEmail ? 'OUTBOUND' : 'INBOUND'
+        // Use case-insensitive email comparison for direction
+        const direction = emailsMatch(msg.from, userEmail) ? 'OUTBOUND' : 'INBOUND'
 
         await prisma.emailMessage.upsert({
           where: { gmailMessageId: msg.id },
@@ -722,22 +809,14 @@ export async function getStoredThreads({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const where: any = { userId }
 
-  // Apply folder filter
+  // Apply folder filter using indexed boolean fields
   if (folder === 'inbox') {
-    // Inbox: threads with inbound messages (not archived)
+    // Inbox: threads with at least one inbound message (not archived)
     where.isArchived = false
-    where.messages = {
-      some: {
-        direction: 'INBOUND'
-      }
-    }
+    where.hasInbound = true
   } else if (folder === 'sent') {
-    // Sent: threads with outbound messages
-    where.messages = {
-      some: {
-        direction: 'OUTBOUND'
-      }
-    }
+    // Sent: threads with at least one outbound message
+    where.hasOutbound = true
   } else if (folder === 'starred') {
     where.isStarred = true
   } else if (folder === 'followup') {

@@ -507,6 +507,15 @@ model EmailThread {
   // Participants
   participants    String[]        // Array of email addresses
 
+  // Direction flags for filtering (computed from messages)
+  hasInbound      Boolean         @default(false)  // Has at least one received message
+  hasOutbound     Boolean         @default(false)  // Has at least one sent message
+  lastDirection   String?                          // Direction of last message: INBOUND or OUTBOUND
+
+  // Last message sender info for display
+  lastSenderEmail String?
+  lastSenderName  String?
+
   // Tracking
   isRead          Boolean         @default(false)
   isStarred       Boolean         @default(false)
@@ -542,6 +551,8 @@ model EmailThread {
   @@index([linkDirectoryDomainId])
   @@index([lastMessageAt])
   @@index([needsFollowUp])
+  @@index([hasInbound])
+  @@index([hasOutbound])
   @@map("email_threads")
 }
 

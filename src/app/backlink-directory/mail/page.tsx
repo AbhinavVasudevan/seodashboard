@@ -29,6 +29,11 @@ interface EmailThread {
   subject: string
   snippet: string
   participants: string[]
+  hasInbound: boolean
+  hasOutbound: boolean
+  lastDirection: string | null
+  lastSenderEmail: string | null
+  lastSenderName: string | null
   isRead: boolean
   isStarred: boolean
   isArchived: boolean
@@ -434,10 +439,38 @@ export default function MailPage() {
   }
 
   const getParticipantDisplay = (thread: EmailThread) => {
+    // For sent folder, show "To: recipient"
+    if (activeFolder === 'sent' && thread.lastDirection === 'OUTBOUND') {
+      // Get the recipient from the last message or participants
+      const recipients = thread.participants.filter(p =>
+        p !== thread.lastSenderEmail && p.includes('@')
+      )
+      if (recipients.length > 0) {
+        const recipientEmail = recipients[0]
+        const recipientName = recipientEmail.split('@')[0]
+        return `To: ${recipientName}`
+      }
+    }
+
+    // For inbox or mixed threads, show the sender
+    if (thread.lastSenderName) return thread.lastSenderName
+    if (thread.lastSenderEmail) {
+      // Extract name part from email (before @)
+      return thread.lastSenderEmail.split('@')[0]
+    }
+
+    // Fallback to first message data
     const lastMsg = thread.messages[0]
     if (lastMsg?.fromName) return lastMsg.fromName
     if (lastMsg?.fromEmail) return lastMsg.fromEmail.split('@')[0]
-    return thread.participants[0]?.split('@')[0] || 'Unknown'
+
+    // Last resort - first participant
+    const firstParticipant = thread.participants[0]
+    if (firstParticipant) {
+      return firstParticipant.split('@')[0]
+    }
+
+    return 'Unknown'
   }
 
   // Gmail not connected state
