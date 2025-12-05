@@ -289,6 +289,7 @@ model LinkDirectoryDomain {
   backlinks       Backlink[]
   prospects       BacklinkProspect[]
   priceHistory    DomainPriceHistory[]
+  emailThreads    EmailThread[]
 
   @@index([rootDomain])
   @@map("link_directory_domains")
@@ -332,6 +333,7 @@ model BacklinkProspect {
   brandDeals              BrandBacklinkDeal[]
   linkDirectoryDomainId   String?
   linkDirectoryDomain     LinkDirectoryDomain? @relation(fields: [linkDirectoryDomainId], references: [id])
+  emailThreads            EmailThread[]
 
   @@index([status])
   @@index([rootDomain])
@@ -488,4 +490,108 @@ model EmailLog {
 
   @@index([prospectId])
   @@map("email_logs")
+}
+
+// ==========================================
+// MAIL MODULE - EMAIL THREADS & MESSAGES
+// ==========================================
+
+model EmailThread {
+  id              String          @id @default(cuid())
+
+  // Gmail thread info
+  gmailThreadId   String          @unique
+  subject         String
+  snippet         String?         @db.Text  // Preview text
+
+  // Participants
+  participants    String[]        // Array of email addresses
+
+  // Tracking
+  isRead          Boolean         @default(false)
+  isStarred       Boolean         @default(false)
+  isArchived      Boolean         @default(false)
+  needsFollowUp   Boolean         @default(false)
+  followUpDate    DateTime?
+
+  // Linked prospect (if matched)
+  prospectId      String?
+  prospect        BacklinkProspect? @relation(fields: [prospectId], references: [id])
+
+  // Linked domain from directory
+  linkDirectoryDomainId String?
+  linkDirectoryDomain   LinkDirectoryDomain? @relation(fields: [linkDirectoryDomainId], references: [id])
+
+  // Message counts
+  messageCount    Int             @default(0)
+  unreadCount     Int             @default(0)
+
+  // Timestamps
+  lastMessageAt   DateTime
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  // Relations
+  messages        EmailMessage[]
+
+  // User who owns this thread
+  userId          String
+
+  @@index([userId])
+  @@index([prospectId])
+  @@index([linkDirectoryDomainId])
+  @@index([lastMessageAt])
+  @@index([needsFollowUp])
+  @@map("email_threads")
+}
+
+model EmailMessage {
+  id              String        @id @default(cuid())
+
+  // Gmail message info
+  gmailMessageId  String        @unique
+
+  // Thread relation
+  threadId        String
+  thread          EmailThread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  // Message details
+  fromEmail       String
+  fromName        String?
+  toEmails        String[]      // Can be multiple recipients
+  ccEmails        String[]      @default([])
+  subject         String
+  snippet         String?       @db.Text
+  bodyHtml        String?       @db.Text
+  bodyText        String?       @db.Text
+
+  // Message type
+  direction       EmailDirection  // INBOUND or OUTBOUND
+
+  // Status
+  isRead          Boolean       @default(false)
+  isStarred       Boolean       @default(false)
+
+  // Labels from Gmail
+  labels          String[]      @default([])
+
+  // Attachments info
+  hasAttachments  Boolean       @default(false)
+  attachmentCount Int           @default(0)
+
+  // Timestamps
+  sentAt          DateTime
+  receivedAt      DateTime      @default(now())
+  createdAt       DateTime      @default(now())
+
+  @@index([threadId])
+  @@index([fromEmail])
+  @@index([direction])
+  @@index([sentAt])
+  @@map("email_messages")
+}
+
+enum EmailDirection {
+  INBOUND
+  OUTBOUND
 }

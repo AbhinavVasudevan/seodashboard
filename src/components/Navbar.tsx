@@ -35,6 +35,7 @@ const fullNavigation: NavItem[] = [
     children: [
       { name: 'All Domains', href: '/backlink-directory/domains' },
       { name: 'Prospects', href: '/backlink-directory/prospects' },
+      { name: 'Mail', href: '/backlink-directory/mail' },
       { name: 'Import', href: '/backlink-directory/import' },
       { name: 'Brand Deals', href: '/backlink-directory/deals' },
     ]
