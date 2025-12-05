@@ -114,6 +114,7 @@ export default function ProspectsPage() {
     body: ''
   })
   const [sendingEmail, setSendingEmail] = useState(false)
+  const [showEmailPreview, setShowEmailPreview] = useState(false)
 
   // Gmail connection state
   const [gmailConnected, setGmailConnected] = useState(false)
@@ -190,10 +191,34 @@ export default function ProspectsPage() {
       const response = await fetch('/api/email-templates')
       const data = await response.json()
       setEmailTemplates(data)
+
+      // Auto-seed templates if none exist
+      if (data.length === 0) {
+        await seedTemplates()
+      }
     } catch (error) {
       console.error('Error fetching templates:', error)
     }
   }
+
+  const seedTemplates = async () => {
+    try {
+      const response = await fetch('/api/email-templates/seed', { method: 'POST' })
+      if (response.ok) {
+        // Refetch templates after seeding
+        const templatesResponse = await fetch('/api/email-templates')
+        const data = await templatesResponse.json()
+        setEmailTemplates(data)
+      }
+    } catch (error) {
+      console.error('Error seeding templates:', error)
+    }
+  }
+
+  // Group templates by category
+  const outreachTemplates = emailTemplates.filter(t => t.category === 'outreach')
+  const followupTemplates = emailTemplates.filter(t => t.category === 'followup')
+  const otherTemplates = emailTemplates.filter(t => !t.category || (t.category !== 'outreach' && t.category !== 'followup'))
 
   const fetchProspects = async () => {
     try {
@@ -449,6 +474,7 @@ export default function ProspectsPage() {
       body: ''
     })
     setSelectedTemplate('')
+    setShowEmailPreview(false)
     setShowEmailModal(true)
   }
 
@@ -1106,11 +1132,33 @@ export default function ProspectsPage() {
                         className="input-field"
                       >
                         <option value="">Select a template...</option>
-                        {emailTemplates.map(template => (
-                          <option key={template.id} value={template.id}>
-                            {template.name}
-                          </option>
-                        ))}
+                        {outreachTemplates.length > 0 && (
+                          <optgroup label="📧 Outreach">
+                            {outreachTemplates.map(template => (
+                              <option key={template.id} value={template.id}>
+                                {template.name.replace('Outreach - ', '')}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                        {followupTemplates.length > 0 && (
+                          <optgroup label="🔄 Follow-up">
+                            {followupTemplates.map(template => (
+                              <option key={template.id} value={template.id}>
+                                {template.name.replace('Follow-up - ', '')}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                        {otherTemplates.length > 0 && (
+                          <optgroup label="Other">
+                            {otherTemplates.map(template => (
+                              <option key={template.id} value={template.id}>
+                                {template.name}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
                       </select>
                     </div>
                   )}
@@ -1128,15 +1176,31 @@ export default function ProspectsPage() {
                   </div>
 
                   <div>
-                    <label className="input-label">Body *</label>
-                    <textarea
-                      value={emailForm.body}
-                      onChange={(e) => setEmailForm({ ...emailForm, body: e.target.value })}
-                      className="input-field font-mono text-sm"
-                      rows={10}
-                      placeholder="Email body... You can use HTML."
-                      required
-                    />
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="input-label mb-0">Body *</label>
+                      <button
+                        type="button"
+                        onClick={() => setShowEmailPreview(!showEmailPreview)}
+                        className="text-xs text-primary hover:underline"
+                      >
+                        {showEmailPreview ? 'Edit HTML' : 'Preview'}
+                      </button>
+                    </div>
+                    {showEmailPreview ? (
+                      <div
+                        className="input-field bg-white dark:bg-gray-900 min-h-[240px] prose prose-sm dark:prose-invert max-w-none overflow-auto"
+                        dangerouslySetInnerHTML={{ __html: emailForm.body }}
+                      />
+                    ) : (
+                      <textarea
+                        value={emailForm.body}
+                        onChange={(e) => setEmailForm({ ...emailForm, body: e.target.value })}
+                        className="input-field font-mono text-sm"
+                        rows={10}
+                        placeholder="Email body... You can use HTML."
+                        required
+                      />
+                    )}
                     <p className="text-xs text-muted-foreground mt-1">
                       Placeholders: {'{domain}'}, {'{url}'} will be replaced with prospect data
                     </p>

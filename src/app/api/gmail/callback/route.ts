@@ -1,24 +1,28 @@
 import { NextResponse } from 'next/server'
-import { getTokensFromCode, getGmailAddress, createOAuth2Client } from '@/lib/gmail'
+import { getTokensFromCode, getGmailAddress } from '@/lib/gmail'
 import { prisma } from '@/lib/prisma'
 
 // GET - Handle OAuth callback
 export async function GET(request: Request) {
+  // Get base URL from request or env
+  const requestUrl = new URL(request.url)
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || `${requestUrl.protocol}//${requestUrl.host}`
+
   try {
-    const { searchParams } = new URL(request.url)
+    const { searchParams } = requestUrl
     const code = searchParams.get('code')
     const state = searchParams.get('state') // This is the userId
     const error = searchParams.get('error')
 
     if (error) {
       return NextResponse.redirect(
-        new URL(`/backlink-directory/prospects?gmail_error=${error}`, process.env.NEXTAUTH_URL!)
+        new URL(`/backlink-directory/prospects?gmail_error=${error}`, baseUrl)
       )
     }
 
     if (!code || !state) {
       return NextResponse.redirect(
-        new URL('/backlink-directory/prospects?gmail_error=missing_code', process.env.NEXTAUTH_URL!)
+        new URL('/backlink-directory/prospects?gmail_error=missing_code', baseUrl)
       )
     }
 
@@ -29,7 +33,7 @@ export async function GET(request: Request) {
 
     if (!tokens.access_token || !tokens.refresh_token) {
       return NextResponse.redirect(
-        new URL('/backlink-directory/prospects?gmail_error=no_tokens', process.env.NEXTAUTH_URL!)
+        new URL('/backlink-directory/prospects?gmail_error=no_tokens', baseUrl)
       )
     }
 
@@ -38,7 +42,7 @@ export async function GET(request: Request) {
 
     if (!email) {
       return NextResponse.redirect(
-        new URL('/backlink-directory/prospects?gmail_error=no_email', process.env.NEXTAUTH_URL!)
+        new URL('/backlink-directory/prospects?gmail_error=no_email', baseUrl)
       )
     }
 
@@ -65,12 +69,12 @@ export async function GET(request: Request) {
 
     // Redirect back to prospects page with success
     return NextResponse.redirect(
-      new URL(`/backlink-directory/prospects?gmail_connected=${encodeURIComponent(email)}`, process.env.NEXTAUTH_URL!)
+      new URL(`/backlink-directory/prospects?gmail_connected=${encodeURIComponent(email)}`, baseUrl)
     )
   } catch (error) {
     console.error('Gmail callback error:', error)
     return NextResponse.redirect(
-      new URL('/backlink-directory/prospects?gmail_error=callback_failed', process.env.NEXTAUTH_URL!)
+      new URL('/backlink-directory/prospects?gmail_error=callback_failed', baseUrl)
     )
   }
 }
