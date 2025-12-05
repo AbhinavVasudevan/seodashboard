@@ -47,7 +47,15 @@ const writerNavigation: NavItem[] = [
 ]
 
 const adminNavigation: NavItem[] = [
-  { name: 'Users', href: '/admin/users' },
+  {
+    name: 'Admin',
+    href: '/admin',
+    children: [
+      { name: 'Users', href: '/admin/users' },
+      { name: 'Imposter Review', href: '/admin/imposters' },
+      { name: 'Blocked Domains', href: '/admin/blocked-domains' },
+    ]
+  },
 ]
 
 export default function Navbar() {

@@ -18,7 +18,8 @@ import {
   CloudArrowDownIcon,
   CheckCircleIcon,
   ClockIcon,
-  GlobeAltIcon
+  GlobeAltIcon,
+  ShieldExclamationIcon
 } from '@heroicons/react/24/outline'
 import { getFaviconUrl } from '@/lib/utils'
 import {
@@ -557,7 +558,7 @@ export default function BrandDetailPage() {
         )}
 
         {/* Quick Links */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Link
             href={`/brands/${brandId}/keywords/new`}
             className="card p-5 hover:shadow-md transition-shadow group"
@@ -598,6 +599,31 @@ export default function BrandDetailPage() {
                   </h2>
                   <p className="text-sm text-muted-foreground mt-0.5">
                     Track acquired backlinks and DR
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 text-sm text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+                Manage
+                <ArrowRightIcon className="h-4 w-4" />
+              </div>
+            </div>
+          </Link>
+
+          <Link
+            href={`/brands/${brandId}/imposters`}
+            className="card p-5 hover:shadow-md transition-shadow group"
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex gap-4">
+                <div className="bg-red-100 dark:bg-red-900/30 p-3 rounded-lg">
+                  <ShieldExclamationIcon className="h-6 w-6 text-red-600 dark:text-red-400" />
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold text-foreground group-hover:text-primary transition-colors">
+                    Imposter Detection
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    Monitor and report imposters
                   </p>
                 </div>
               </div>

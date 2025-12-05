@@ -9,18 +9,20 @@ datasource db {
 }
 
 model User {
-  id                String          @id @default(cuid())
-  email             String          @unique
+  id                String           @id @default(cuid())
+  email             String           @unique
   name              String?
-  password          String          @default("")
-  role              UserRole        @default(WRITER)
-  isActive          Boolean         @default(true)
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  requestedArticles Article[]       @relation("RequestedArticles")
-  writtenArticles   Article[]       @relation("WrittenArticles")
+  password          String           @default("")
+  role              UserRole         @default(WRITER)
+  isActive          Boolean          @default(true)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  requestedArticles Article[]        @relation("RequestedArticles")
+  writtenArticles   Article[]        @relation("WrittenArticles")
   brands            Brand[]
   blockedDomains    BlockedDomain[]
+  reviewedImposters Imposter[]       @relation("ReviewedImposters")
+  imposterReports   ImposterReport[] @relation("ImposterReports")
 
   @@map("users")
 }
@@ -42,6 +44,8 @@ model Brand {
   backlinkDeals     BrandBacklinkDeal[]
   user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   keywords          Keyword[]
+  imposterScans     ImposterScan[]
+  imposters         Imposter[]
 
   @@index([userId])
   @@map("brands")
@@ -605,4 +609,141 @@ model EmailMessage {
 enum EmailDirection {
   INBOUND
   OUTBOUND
+}
+
+// ==========================================
+// IMPOSTER DETECTION - Brand Protection
+// ==========================================
+
+model ImposterScan {
+  id              String       @id @default(cuid())
+  brandId         String
+  brand           Brand        @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  searchKeyword   String       // The keyword searched (usually brand name)
+  geolocation     String       @default("GB")
+  pagesScanned    Int          @default(0)
+  totalResults    Int          @default(0)
+  impostorsFound  Int          @default(0)
+  status          ScanStatus   @default(PENDING)
+  errorMessage    String?
+  startedAt       DateTime     @default(now())
+  completedAt     DateTime?
+  createdAt       DateTime     @default(now())
+
+  imposters       Imposter[]
+
+  @@index([brandId])
+  @@index([status])
+  @@map("imposter_scans")
+}
+
+model Imposter {
+  id              String          @id @default(cuid())
+  brandId         String
+  brand           Brand           @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  scanId          String?
+  scan            ImposterScan?   @relation(fields: [scanId], references: [id], onDelete: SetNull)
+
+  domain          String          // The imposter domain (e.g., monster-casinos.com)
+  fullUrl         String?         // Full URL found in search
+  pageTitle       String?         // Title from search result
+  pageDescription String?         // Description from search result
+  searchRank      Int?            // Position in search results
+
+  source          ImposterSource  @default(GOOGLE_SEARCH)
+  status          ImposterStatus  @default(SUSPECTED)
+
+  // Admin review
+  reviewedById    String?
+  reviewedBy      User?           @relation("ReviewedImposters", fields: [reviewedById], references: [id])
+  reviewedAt      DateTime?
+  reviewNotes     String?
+
+  // Timestamps
+  detectedAt      DateTime        @default(now())
+  confirmedAt     DateTime?
+  resolvedAt      DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  reports         ImposterReport[]
+
+  @@unique([brandId, domain])
+  @@index([brandId])
+  @@index([status])
+  @@index([scanId])
+  @@map("imposters")
+}
+
+model ImposterReport {
+  id              String              @id @default(cuid())
+  imposterId      String
+  imposter        Imposter            @relation(fields: [imposterId], references: [id], onDelete: Cascade)
+
+  reportType      ReportType          // What entity was reported to
+  status          ReportStatus        @default(NOT_REPORTED)
+
+  // Tracking
+  reportedById    String?
+  reportedBy      User?               @relation("ImposterReports", fields: [reportedById], references: [id])
+  reportedAt      DateTime?
+
+  // Follow-up
+  lastFollowUpAt  DateTime?
+  followUpCount   Int                 @default(0)
+  responseReceived Boolean            @default(false)
+  responseAt      DateTime?
+  responseNotes   String?
+
+  // Reference info
+  ticketNumber    String?             // Reference/ticket number from the entity
+  contactEmail    String?             // Email used for reporting
+  notes           String?             @db.Text
+
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@unique([imposterId, reportType])
+  @@index([imposterId])
+  @@index([status])
+  @@index([reportType])
+  @@map("imposter_reports")
+}
+
+enum ScanStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+enum ImposterSource {
+  GOOGLE_SEARCH
+  MANUAL
+  USER_REPORT
+}
+
+enum ImposterStatus {
+  SUSPECTED       // Detected by system, needs review
+  CONFIRMED       // Admin confirmed as imposter
+  FALSE_POSITIVE  // Admin marked as not an imposter
+  RESOLVED        // Imposter has been taken down
+}
+
+enum ReportType {
+  CLOUDFLARE      // CF abuse report
+  HOSTING         // Hosting provider abuse report
+  GOOGLE_LEGAL    // Google Legal removal request
+  GOOGLE_COPYRIGHT // Google Copyright/DMCA
+  DOMAIN_REGISTRAR // Domain registrar abuse report
+  DOMAIN_OWNER    // Direct contact with domain owner
+}
+
+enum ReportStatus {
+  NOT_REPORTED    // Not yet reported
+  PENDING         // Report submitted, awaiting response
+  IN_PROGRESS     // Being processed by the entity
+  RESOLVED        // Successfully resolved/taken down
+  REJECTED        // Report was rejected
+  NO_RESPONSE     // No response after follow-ups
 }
