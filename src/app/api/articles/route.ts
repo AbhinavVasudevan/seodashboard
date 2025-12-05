@@ -182,12 +182,12 @@ export async function PUT(request: NextRequest) {
       ...updateData,
     }
 
-    // Handle date fields
-    if (updateData.publishDate) {
-      data.publishDate = new Date(updateData.publishDate)
+    // Handle date fields - convert valid dates or set to null for empty values
+    if (updateData.publishDate !== undefined) {
+      data.publishDate = updateData.publishDate ? new Date(updateData.publishDate) : null
     }
-    if (updateData.sentDate) {
-      data.sentDate = new Date(updateData.sentDate)
+    if (updateData.sentDate !== undefined) {
+      data.sentDate = updateData.sentDate ? new Date(updateData.sentDate) : null
     }
 
     // Handle number fields
