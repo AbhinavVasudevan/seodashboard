@@ -36,15 +36,37 @@ export async function GET(request: Request) {
 
     // Stats action - get mail stats
     if (action === 'stats') {
-      const [total, unread, starred, followup, withProspect] = await Promise.all([
-        prisma.emailThread.count({ where: { userId: session.user.id, isArchived: false } }),
-        prisma.emailThread.count({ where: { userId: session.user.id, isArchived: false, isRead: false } }),
+      const [total, unread, starred, followup, withProspect, sent] = await Promise.all([
+        // Total inbox threads (with inbound messages, not archived)
+        prisma.emailThread.count({
+          where: {
+            userId: session.user.id,
+            isArchived: false,
+            messages: { some: { direction: 'INBOUND' } }
+          }
+        }),
+        // Unread inbox threads
+        prisma.emailThread.count({
+          where: {
+            userId: session.user.id,
+            isArchived: false,
+            isRead: false,
+            messages: { some: { direction: 'INBOUND' } }
+          }
+        }),
         prisma.emailThread.count({ where: { userId: session.user.id, isStarred: true } }),
         prisma.emailThread.count({ where: { userId: session.user.id, needsFollowUp: true } }),
-        prisma.emailThread.count({ where: { userId: session.user.id, prospectId: { not: null } } })
+        prisma.emailThread.count({ where: { userId: session.user.id, prospectId: { not: null } } }),
+        // Sent threads (with outbound messages)
+        prisma.emailThread.count({
+          where: {
+            userId: session.user.id,
+            messages: { some: { direction: 'OUTBOUND' } }
+          }
+        })
       ])
 
-      return NextResponse.json({ total, unread, starred, followup, withProspect })
+      return NextResponse.json({ total, unread, starred, followup, withProspect, sent })
     }
 
     // Default: List threads from database

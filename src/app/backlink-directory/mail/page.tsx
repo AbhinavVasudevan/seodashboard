@@ -109,6 +109,7 @@ interface MailStats {
   starred: number
   followup: number
   withProspect: number
+  sent: number
 }
 
 interface EmailTemplate {
@@ -514,6 +515,7 @@ export default function MailPage() {
             {FOLDERS.map(folder => {
               const Icon = folder.icon
               const count = folder.id === 'inbox' ? stats?.unread
+                : folder.id === 'sent' ? stats?.sent
                 : folder.id === 'starred' ? stats?.starred
                 : folder.id === 'followup' ? stats?.followup
                 : undefined

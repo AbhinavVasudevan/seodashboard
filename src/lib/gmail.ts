@@ -719,11 +719,25 @@ export async function getStoredThreads({
   limit?: number
   search?: string
 }) {
-  const where: Record<string, unknown> = { userId }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const where: any = { userId }
 
   // Apply folder filter
   if (folder === 'inbox') {
+    // Inbox: threads with inbound messages (not archived)
     where.isArchived = false
+    where.messages = {
+      some: {
+        direction: 'INBOUND'
+      }
+    }
+  } else if (folder === 'sent') {
+    // Sent: threads with outbound messages
+    where.messages = {
+      some: {
+        direction: 'OUTBOUND'
+      }
+    }
   } else if (folder === 'starred') {
     where.isStarred = true
   } else if (folder === 'followup') {
@@ -732,10 +746,15 @@ export async function getStoredThreads({
 
   // Apply search
   if (search) {
-    where.OR = [
-      { subject: { contains: search, mode: 'insensitive' } },
-      { snippet: { contains: search, mode: 'insensitive' } },
-      { participants: { hasSome: [search] } }
+    where.AND = [
+      ...(where.AND || []),
+      {
+        OR: [
+          { subject: { contains: search, mode: 'insensitive' } },
+          { snippet: { contains: search, mode: 'insensitive' } },
+          { participants: { hasSome: [search] } }
+        ]
+      }
     ]
   }
 
