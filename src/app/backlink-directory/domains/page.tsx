@@ -10,7 +10,11 @@ import {
   ArrowUpTrayIcon,
   XMarkIcon,
   LinkIcon,
-  GlobeAltIcon
+  GlobeAltIcon,
+  EllipsisVerticalIcon,
+  ShieldExclamationIcon,
+  NoSymbolIcon,
+  CheckCircleIcon
 } from '@heroicons/react/24/outline'
 
 interface Brand {
@@ -64,12 +68,17 @@ interface DomainDetails {
     backlinks: Array<{
       id: string
       referringPageUrl: string
+      referringPageTitle: string | null
       targetUrl: string
       dr: number | null
+      ur: number | null
+      domainTraffic: number | null
       anchor: string | null
       linkType: string | null
-      price: number | null
+      content: string | null
+      firstSeen: string | null
       publishDate: string | null
+      price: number | null
     }>
     totalSpent: number
   }>
@@ -78,6 +87,23 @@ interface DomainDetails {
     totalBrands: number
     totalSpent: number
   }
+}
+
+// Helper functions
+const getLinkTypeBadge = (type: string | null) => {
+  const t = type?.toLowerCase()
+  if (t === 'dofollow') return 'badge-success'
+  if (t === 'nofollow') return 'badge-default'
+  if (t === 'sponsored') return 'badge-purple'
+  if (t === 'ugc') return 'badge-warning'
+  return 'badge-default'
+}
+
+const getDRColor = (dr: number | null) => {
+  if (!dr) return 'text-muted-foreground'
+  if (dr >= 50) return 'text-green-600 font-semibold'
+  if (dr >= 30) return 'text-amber-600 font-medium'
+  return 'text-muted-foreground'
 }
 
 const CONTACT_METHODS = [
@@ -141,6 +167,44 @@ export default function LinkDirectoryPage() {
   const [importData, setImportData] = useState('')
   const [importing, setImporting] = useState(false)
 
+  // Category actions dropdown
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null)
+
+  const handleCategoryAction = async (domain: Domain, action: 'SPAM' | 'FREE_AFFILIATE' | 'FREE_LINK' | 'UNBLOCK') => {
+    setOpenDropdown(null)
+    try {
+      if (action === 'UNBLOCK') {
+        const response = await fetch(`/api/blocked-domains?domain=${encodeURIComponent(domain.rootDomain)}`, {
+          method: 'DELETE',
+        })
+        if (!response.ok) {
+          const error = await response.json()
+          alert(error.error || 'Failed to unblock domain')
+          return
+        }
+      } else {
+        const response = await fetch('/api/blocked-domains', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            domain: domain.rootDomain,
+            type: action,
+          }),
+        })
+        if (!response.ok) {
+          const error = await response.json()
+          alert(error.error || 'Failed to update domain category')
+          return
+        }
+      }
+      // Refresh the list
+      fetchDomains()
+    } catch (error) {
+      console.error('Error updating domain category:', error)
+      alert('Failed to update domain category')
+    }
+  }
+
   const fetchDomains = useCallback(async () => {
     try {
       setIsLoading(true)
@@ -190,9 +254,26 @@ export default function LinkDirectoryPage() {
         try {
           const response = await fetch(`/api/link-directory/${domainId}`)
           const data = await response.json()
-          setDomainDetails(prev => ({ ...prev, [domainId]: data }))
+          // Only store if response was successful (has backlinksByBrand)
+          if (response.ok && !data.error) {
+            setDomainDetails(prev => ({ ...prev, [domainId]: data }))
+          } else {
+            // Store empty structure for virtual/backlink-only domains
+            setDomainDetails(prev => ({ ...prev, [domainId]: {
+              backlinksByBrand: [],
+              priceHistory: [],
+              stats: null,
+              error: true
+            } as unknown as DomainDetails }))
+          }
         } catch (error) {
           console.error('Error fetching domain details:', error)
+          setDomainDetails(prev => ({ ...prev, [domainId]: {
+            backlinksByBrand: [],
+            priceHistory: [],
+            stats: null,
+            error: true
+          } as unknown as DomainDetails }))
         } finally {
           setLoadingDetails(prev => {
             const newSet = new Set(prev)
@@ -578,20 +659,89 @@ export default function LinkDirectoryPage() {
                             {domain.remarks || '-'}
                           </td>
                           <td className="whitespace-nowrap">
-                            <button
-                              onClick={() => openEditModal(domain)}
-                              className="action-btn"
-                              title="Edit"
-                            >
-                              <PencilIcon className="h-4 w-4" />
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => openEditModal(domain)}
+                                className="action-btn"
+                                title="Edit"
+                              >
+                                <PencilIcon className="h-4 w-4" />
+                              </button>
+
+                              {/* Category dropdown */}
+                              <div className="relative">
+                                <button
+                                  onClick={() => setOpenDropdown(openDropdown === domain.id ? null : domain.id)}
+                                  className="action-btn"
+                                  title="Mark as..."
+                                >
+                                  <EllipsisVerticalIcon className="h-4 w-4" />
+                                </button>
+
+                                {openDropdown === domain.id && (
+                                  <>
+                                    <div
+                                      className="fixed inset-0 z-10"
+                                      onClick={() => setOpenDropdown(null)}
+                                    />
+                                    <div className="absolute right-0 top-full mt-1 z-20 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[160px]">
+                                      <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground border-b border-border">
+                                        Mark as...
+                                      </div>
+                                      <button
+                                        onClick={() => handleCategoryAction(domain, 'SPAM')}
+                                        className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-muted transition-colors ${
+                                          domain.category === 'SPAM' ? 'text-red-600 bg-red-50 dark:bg-red-900/20' : 'text-foreground'
+                                        }`}
+                                      >
+                                        <ShieldExclamationIcon className="h-4 w-4 text-red-500" />
+                                        Spam
+                                        {domain.category === 'SPAM' && <CheckCircleIcon className="h-4 w-4 ml-auto text-red-500" />}
+                                      </button>
+                                      <button
+                                        onClick={() => handleCategoryAction(domain, 'FREE_AFFILIATE')}
+                                        className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-muted transition-colors ${
+                                          domain.category === 'FREE_AFFILIATE' ? 'text-amber-600 bg-amber-50 dark:bg-amber-900/20' : 'text-foreground'
+                                        }`}
+                                      >
+                                        <LinkIcon className="h-4 w-4 text-amber-500" />
+                                        Free Affiliate
+                                        {domain.category === 'FREE_AFFILIATE' && <CheckCircleIcon className="h-4 w-4 ml-auto text-amber-500" />}
+                                      </button>
+                                      <button
+                                        onClick={() => handleCategoryAction(domain, 'FREE_LINK')}
+                                        className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-muted transition-colors ${
+                                          domain.category === 'FREE_LINK' ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'text-foreground'
+                                        }`}
+                                      >
+                                        <GlobeAltIcon className="h-4 w-4 text-blue-500" />
+                                        Free Link
+                                        {domain.category === 'FREE_LINK' && <CheckCircleIcon className="h-4 w-4 ml-auto text-blue-500" />}
+                                      </button>
+                                      {domain.category && (
+                                        <>
+                                          <div className="border-t border-border my-1" />
+                                          <button
+                                            onClick={() => handleCategoryAction(domain, 'UNBLOCK')}
+                                            className="w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-muted transition-colors text-green-600"
+                                          >
+                                            <NoSymbolIcon className="h-4 w-4" />
+                                            Remove from list
+                                          </button>
+                                        </>
+                                      )}
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            </div>
                           </td>
                         </tr>
 
                         {/* Expanded details */}
                         {expandedDomains.has(domain.id) && (
                           <tr key={`${domain.id}-details`}>
-                            <td colSpan={9} className="bg-muted/30 p-0">
+                            <td colSpan={9} className="bg-muted/20 p-0">
                               {loadingDetails.has(domain.id) ? (
                                 <div className="flex items-center justify-center py-8">
                                   <div className="spinner-sm text-primary"></div>
@@ -600,92 +750,146 @@ export default function LinkDirectoryPage() {
                               ) : domainDetails[domain.id] ? (
                                 <div className="p-4 space-y-4">
                                   {/* Summary Stats Row */}
-                                  <div className="flex items-center gap-6 pb-3 border-b border-border">
-                                    <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-6 flex-wrap">
+                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-card rounded-lg border border-border">
                                       <span className="text-xs text-muted-foreground">Total Backlinks:</span>
-                                      <span className="text-sm font-semibold text-foreground">{domainDetails[domain.id].stats.totalBacklinks}</span>
+                                      <span className="text-sm font-semibold text-foreground">{domainDetails[domain.id].stats?.totalBacklinks ?? domain.totalBacklinks}</span>
                                     </div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-card rounded-lg border border-border">
                                       <span className="text-xs text-muted-foreground">Brands:</span>
-                                      <span className="text-sm font-semibold text-foreground">{domainDetails[domain.id].stats.totalBrands}</span>
+                                      <span className="text-sm font-semibold text-foreground">{domainDetails[domain.id].stats?.totalBrands ?? domain.brands.length}</span>
                                     </div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-card rounded-lg border border-border">
                                       <span className="text-xs text-muted-foreground">Total Spent:</span>
-                                      <span className="text-sm font-semibold text-green-600 dark:text-green-400">${domainDetails[domain.id].stats.totalSpent.toFixed(2)}</span>
+                                      <span className="text-sm font-semibold text-green-600 dark:text-green-400">${(domainDetails[domain.id].stats?.totalSpent ?? domain.totalSpent).toFixed(2)}</span>
                                     </div>
                                     {domainDetails[domain.id].currentPrice && (
-                                      <div className="flex items-center gap-2">
+                                      <div className="flex items-center gap-2 px-3 py-1.5 bg-card rounded-lg border border-border">
                                         <span className="text-xs text-muted-foreground">Current Price:</span>
                                         <span className="text-sm font-semibold text-primary">${domainDetails[domain.id].currentPrice}</span>
                                       </div>
                                     )}
                                     {domainDetails[domain.id].supplierName && (
-                                      <div className="flex items-center gap-2">
+                                      <div className="flex items-center gap-2 px-3 py-1.5 bg-card rounded-lg border border-border">
                                         <span className="text-xs text-muted-foreground">Supplier:</span>
                                         <span className="text-sm text-foreground">{domainDetails[domain.id].supplierName}</span>
                                       </div>
                                     )}
                                   </div>
 
-                                  {/* Backlinks by Brand */}
-                                  <div className="space-y-3">
-                                    {domainDetails[domain.id].backlinksByBrand.map(brandGroup => (
+                                  {/* Backlinks by Brand - Table Format */}
+                                  <div className="space-y-4">
+                                    {(domainDetails[domain.id].backlinksByBrand || []).length > 0 ? (
+                                      domainDetails[domain.id].backlinksByBrand.map(brandGroup => (
                                       <div key={brandGroup.brand.id} className="bg-card rounded-lg border border-border overflow-hidden">
-                                        <div className="flex items-center justify-between px-4 py-2.5 bg-muted/50 border-b border-border">
-                                          <div className="flex items-center gap-2">
+                                        {/* Brand Header */}
+                                        <div className="flex items-center justify-between px-4 py-3 bg-muted/50 border-b border-border">
+                                          <div className="flex items-center gap-3">
                                             <span className="badge-purple">{brandGroup.brand.name}</span>
+                                            <span className="text-xs text-muted-foreground">
+                                              {brandGroup.backlinks.length} {brandGroup.backlinks.length === 1 ? 'backlink' : 'backlinks'}
+                                            </span>
                                           </div>
-                                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                            <span>{brandGroup.backlinks.length} {brandGroup.backlinks.length === 1 ? 'link' : 'links'}</span>
-                                            {brandGroup.totalSpent > 0 && (
-                                              <span className="text-green-600 dark:text-green-400 font-medium">${brandGroup.totalSpent.toFixed(2)} spent</span>
-                                            )}
-                                          </div>
-                                        </div>
-                                        <div className="divide-y divide-border">
-                                          {brandGroup.backlinks.slice(0, 5).map(backlink => (
-                                            <div key={backlink.id} className="px-4 py-2.5 flex items-center gap-3 hover:bg-muted/30 transition-colors">
-                                              <a
-                                                href={backlink.referringPageUrl}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-xs text-primary hover:underline truncate flex-1 min-w-0"
-                                              >
-                                                {backlink.referringPageUrl}
-                                              </a>
-                                              <span className="text-muted-foreground/40 flex-shrink-0">→</span>
-                                              <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">{backlink.targetUrl}</span>
-                                              <div className="flex items-center gap-2 flex-shrink-0">
-                                                {backlink.dr && (
-                                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 font-medium">
-                                                    DR {backlink.dr}
-                                                  </span>
-                                                )}
-                                                {backlink.price && backlink.price > 0 && (
-                                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 font-medium">
-                                                    ${backlink.price}
-                                                  </span>
-                                                )}
-                                              </div>
-                                            </div>
-                                          ))}
-                                          {brandGroup.backlinks.length > 5 && (
-                                            <div className="px-4 py-2 text-xs text-muted-foreground bg-muted/30">
-                                              +{brandGroup.backlinks.length - 5} more backlinks
-                                            </div>
+                                          {brandGroup.totalSpent > 0 && (
+                                            <span className="text-sm text-green-600 dark:text-green-400 font-medium">
+                                              ${brandGroup.totalSpent.toFixed(2)} spent
+                                            </span>
                                           )}
                                         </div>
+
+                                        {/* Backlinks Table */}
+                                        <div className="overflow-x-auto">
+                                          <table className="w-full text-sm">
+                                            <thead className="bg-muted/30">
+                                              <tr>
+                                                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Referring Page</th>
+                                                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Target URL</th>
+                                                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Anchor</th>
+                                                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Type</th>
+                                                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">DR</th>
+                                                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Price</th>
+                                                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Published</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-border">
+                                              {brandGroup.backlinks.map(backlink => (
+                                                <tr key={backlink.id} className="hover:bg-muted/20 transition-colors">
+                                                  <td className="px-3 py-2.5 max-w-[200px]">
+                                                    <a
+                                                      href={backlink.referringPageUrl}
+                                                      target="_blank"
+                                                      rel="noopener noreferrer"
+                                                      className="text-xs text-primary hover:underline truncate block"
+                                                      title={backlink.referringPageTitle || backlink.referringPageUrl}
+                                                    >
+                                                      {backlink.referringPageUrl.replace(/^https?:\/\//, '').slice(0, 40)}...
+                                                    </a>
+                                                  </td>
+                                                  <td className="px-3 py-2.5 max-w-[180px]">
+                                                    <a
+                                                      href={backlink.targetUrl}
+                                                      target="_blank"
+                                                      rel="noopener noreferrer"
+                                                      className="text-xs text-muted-foreground hover:text-foreground truncate block"
+                                                      title={backlink.targetUrl}
+                                                    >
+                                                      {backlink.targetUrl.replace(/^https?:\/\//, '').slice(0, 35)}...
+                                                    </a>
+                                                  </td>
+                                                  <td className="px-3 py-2.5 max-w-[120px]">
+                                                    <span className="text-xs text-muted-foreground truncate block" title={backlink.anchor || ''}>
+                                                      {backlink.anchor || '-'}
+                                                    </span>
+                                                  </td>
+                                                  <td className="px-3 py-2.5 whitespace-nowrap">
+                                                    {backlink.linkType ? (
+                                                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${getLinkTypeBadge(backlink.linkType)}`}>
+                                                        {backlink.linkType}
+                                                      </span>
+                                                    ) : (
+                                                      <span className="text-xs text-muted-foreground">-</span>
+                                                    )}
+                                                  </td>
+                                                  <td className="px-3 py-2.5 whitespace-nowrap">
+                                                    <span className={`text-xs ${getDRColor(backlink.dr)}`}>
+                                                      {backlink.dr || '-'}
+                                                    </span>
+                                                  </td>
+                                                  <td className="px-3 py-2.5 whitespace-nowrap">
+                                                    {backlink.price ? (
+                                                      <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                                                        ${backlink.price}
+                                                      </span>
+                                                    ) : (
+                                                      <span className="text-xs text-muted-foreground">-</span>
+                                                    )}
+                                                  </td>
+                                                  <td className="px-3 py-2.5 whitespace-nowrap">
+                                                    <span className="text-xs text-muted-foreground">
+                                                      {backlink.publishDate ? new Date(backlink.publishDate).toLocaleDateString() : '-'}
+                                                    </span>
+                                                  </td>
+                                                </tr>
+                                              ))}
+                                            </tbody>
+                                          </table>
+                                        </div>
                                       </div>
-                                    ))}
+                                    ))
+                                    ) : (
+                                      <div className="text-center text-muted-foreground py-6 bg-card rounded-lg border border-border">
+                                        No backlink details available for this domain
+                                      </div>
+                                    )}
                                   </div>
 
                                   {/* Price History */}
                                   {domainDetails[domain.id].priceHistory?.length > 0 && (
-                                    <div className="pt-2 border-t border-border">
+                                    <div className="pt-3 border-t border-border">
                                       <div className="text-xs font-medium text-muted-foreground mb-2">Price History</div>
                                       <div className="flex flex-wrap gap-2">
                                         {domainDetails[domain.id].priceHistory.slice(0, 5).map((ph: PriceHistory) => (
-                                          <div key={ph.id} className="text-xs px-2 py-1 rounded bg-muted flex items-center gap-2">
+                                          <div key={ph.id} className="text-xs px-3 py-1.5 rounded-lg bg-card border border-border flex items-center gap-2">
                                             <span className="text-green-600 dark:text-green-400 font-medium">${ph.price}</span>
                                             <span className="text-muted-foreground">{new Date(ph.effectiveFrom).toLocaleDateString()}</span>
                                             {ph.notes && <span className="text-muted-foreground/60">({ph.notes})</span>}

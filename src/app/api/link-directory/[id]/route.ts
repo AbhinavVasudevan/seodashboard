@@ -13,7 +13,21 @@ export async function GET(
       where: { id },
       include: {
         backlinks: {
-          include: {
+          select: {
+            id: true,
+            referringPageUrl: true,
+            referringPageTitle: true,
+            targetUrl: true,
+            anchor: true,
+            linkType: true,
+            dr: true,
+            ur: true,
+            domainTraffic: true,
+            content: true,
+            firstSeen: true,
+            publishDate: true,
+            price: true,
+            brandId: true,
             brand: {
               select: {
                 id: true,
