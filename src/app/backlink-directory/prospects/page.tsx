@@ -115,6 +115,8 @@ export default function ProspectsPage() {
   })
   const [sendingEmail, setSendingEmail] = useState(false)
   const [showEmailPreview, setShowEmailPreview] = useState(false)
+  const [emailTab, setEmailTab] = useState<'templates' | 'compose'>('templates')
+  const [templateCategory, setTemplateCategory] = useState<'outreach' | 'followup'>('outreach')
 
   // Gmail connection state
   const [gmailConnected, setGmailConnected] = useState(false)
@@ -475,7 +477,39 @@ export default function ProspectsPage() {
     })
     setSelectedTemplate('')
     setShowEmailPreview(false)
+    setEmailTab('templates')
+    setTemplateCategory('outreach')
     setShowEmailModal(true)
+  }
+
+  // Select template and go to compose
+  const selectTemplateCard = (template: EmailTemplate) => {
+    handleTemplateSelect(template.id)
+    setEmailTab('compose')
+  }
+
+  // Insert placeholder at cursor position
+  const insertPlaceholder = (placeholder: string) => {
+    const textarea = document.querySelector('textarea[name="emailBody"]') as HTMLTextAreaElement
+    if (textarea) {
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const newBody = emailForm.body.substring(0, start) + placeholder + emailForm.body.substring(end)
+      setEmailForm({ ...emailForm, body: newBody })
+      // Reset cursor position after state update
+      setTimeout(() => {
+        textarea.focus()
+        textarea.setSelectionRange(start + placeholder.length, start + placeholder.length)
+      }, 0)
+    } else {
+      setEmailForm({ ...emailForm, body: emailForm.body + placeholder })
+    }
+  }
+
+  // Get preview of template body (strip HTML, truncate)
+  const getTemplatePreview = (html: string) => {
+    const text = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+    return text.length > 120 ? text.substring(0, 120) + '...' : text
   }
 
   const handleTemplateSelect = (templateId: string) => {
@@ -1070,168 +1104,283 @@ export default function ProspectsPage() {
         </div>
       )}
 
-      {/* Email Modal */}
+      {/* Email Modal - Redesigned */}
       {showEmailModal && emailProspect && (
         <div className="modal-overlay">
-          <div className="modal-content max-w-2xl max-h-[90vh] flex flex-col">
-            <div className="modal-header flex-shrink-0">
-              <h3 className="modal-title">Send Email</h3>
+          <div className="modal-content max-w-4xl max-h-[90vh] flex flex-col">
+            {/* Header with prospect info */}
+            <div className="modal-header flex-shrink-0 border-b border-border">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <EnvelopeIcon className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">{emailProspect.rootDomain}</h3>
+                  <a
+                    href={emailProspect.referringPageUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-muted-foreground hover:text-primary truncate block max-w-[300px]"
+                  >
+                    {emailProspect.referringPageUrl}
+                  </a>
+                </div>
+              </div>
               <button onClick={() => setShowEmailModal(false)} className="action-btn">
                 <XMarkIcon className="h-5 w-5" />
               </button>
             </div>
-            <form onSubmit={handleSendEmail} className="flex flex-col flex-1 overflow-hidden">
-              <div className="modal-body overflow-y-auto flex-1">
-                <div className="space-y-4">
-                  <div className="bg-muted/30 rounded-lg p-3 text-sm">
-                    <div className="font-medium">{emailProspect.rootDomain}</div>
-                    <a
-                      href={emailProspect.referringPageUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-primary hover:underline"
-                    >
-                      {emailProspect.referringPageUrl}
-                    </a>
-                  </div>
 
-                  {!gmailConnected && (
-                    <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
-                      <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                        Connect your Gmail account to send emails directly from here.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={connectGmail}
-                        className="btn-primary mt-2 text-sm"
-                      >
-                        <LinkIcon className="h-4 w-4" />
-                        Connect Gmail
-                      </button>
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="input-label">To *</label>
-                    <input
-                      type="email"
-                      value={emailForm.to}
-                      onChange={(e) => setEmailForm({ ...emailForm, to: e.target.value })}
-                      className="input-field"
-                      placeholder="contact@example.com"
-                      required
-                    />
-                  </div>
-
-                  {emailTemplates.length > 0 && (
-                    <div>
-                      <label className="input-label">Template</label>
-                      <select
-                        value={selectedTemplate}
-                        onChange={(e) => handleTemplateSelect(e.target.value)}
-                        className="input-field"
-                      >
-                        <option value="">Select a template...</option>
-                        {outreachTemplates.length > 0 && (
-                          <optgroup label="📧 Outreach">
-                            {outreachTemplates.map(template => (
-                              <option key={template.id} value={template.id}>
-                                {template.name.replace('Outreach - ', '')}
-                              </option>
-                            ))}
-                          </optgroup>
-                        )}
-                        {followupTemplates.length > 0 && (
-                          <optgroup label="🔄 Follow-up">
-                            {followupTemplates.map(template => (
-                              <option key={template.id} value={template.id}>
-                                {template.name.replace('Follow-up - ', '')}
-                              </option>
-                            ))}
-                          </optgroup>
-                        )}
-                        {otherTemplates.length > 0 && (
-                          <optgroup label="Other">
-                            {otherTemplates.map(template => (
-                              <option key={template.id} value={template.id}>
-                                {template.name}
-                              </option>
-                            ))}
-                          </optgroup>
-                        )}
-                      </select>
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="input-label">Subject *</label>
-                    <input
-                      type="text"
-                      value={emailForm.subject}
-                      onChange={(e) => setEmailForm({ ...emailForm, subject: e.target.value })}
-                      className="input-field"
-                      placeholder="Subject line..."
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="input-label mb-0">Body *</label>
-                      <button
-                        type="button"
-                        onClick={() => setShowEmailPreview(!showEmailPreview)}
-                        className="text-xs text-primary hover:underline"
-                      >
-                        {showEmailPreview ? 'Edit HTML' : 'Preview'}
-                      </button>
-                    </div>
-                    {showEmailPreview ? (
-                      <div
-                        className="input-field bg-white dark:bg-gray-900 min-h-[240px] prose prose-sm dark:prose-invert max-w-none overflow-auto"
-                        dangerouslySetInnerHTML={{ __html: emailForm.body }}
-                      />
-                    ) : (
-                      <textarea
-                        value={emailForm.body}
-                        onChange={(e) => setEmailForm({ ...emailForm, body: e.target.value })}
-                        className="input-field font-mono text-sm"
-                        rows={10}
-                        placeholder="Email body... You can use HTML."
-                        required
-                      />
-                    )}
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Placeholders: {'{domain}'}, {'{url}'} will be replaced with prospect data
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="modal-footer flex-shrink-0">
+            {/* Gmail Connection Warning */}
+            {!gmailConnected && (
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200 dark:border-yellow-800 px-4 py-3 flex items-center justify-between">
+                <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                  Connect Gmail to send emails directly
+                </p>
                 <button
                   type="button"
-                  onClick={() => setShowEmailModal(false)}
-                  className="btn-secondary"
+                  onClick={connectGmail}
+                  className="btn-primary text-xs py-1.5 px-3"
                 >
-                  Cancel
+                  <LinkIcon className="h-3.5 w-3.5" />
+                  Connect
                 </button>
-                <button
-                  type="submit"
-                  disabled={sendingEmail || !gmailConnected}
-                  className="btn-primary"
-                >
-                  {sendingEmail ? (
-                    <>
-                      <div className="spinner-sm border-white/30 border-t-white"></div>
-                      Sending...
-                    </>
-                  ) : (
-                    <>
-                      <PaperAirplaneIcon className="h-4 w-4" />
-                      Send Email
-                    </>
+              </div>
+            )}
+
+            {/* Tabs */}
+            <div className="flex border-b border-border px-4">
+              <button
+                type="button"
+                onClick={() => setEmailTab('templates')}
+                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  emailTab === 'templates'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Choose Template
+              </button>
+              <button
+                type="button"
+                onClick={() => setEmailTab('compose')}
+                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  emailTab === 'compose'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Compose Email
+              </button>
+            </div>
+
+            <form onSubmit={handleSendEmail} className="flex flex-col flex-1 overflow-hidden">
+              {/* Templates Tab */}
+              {emailTab === 'templates' && (
+                <div className="flex-1 overflow-y-auto p-4">
+                  {/* Category Toggle */}
+                  <div className="flex gap-2 mb-4">
+                    <button
+                      type="button"
+                      onClick={() => setTemplateCategory('outreach')}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        templateCategory === 'outreach'
+                          ? 'bg-primary text-white'
+                          : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                      }`}
+                    >
+                      Outreach ({outreachTemplates.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTemplateCategory('followup')}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        templateCategory === 'followup'
+                          ? 'bg-primary text-white'
+                          : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                      }`}
+                    >
+                      Follow-up ({followupTemplates.length})
+                    </button>
+                  </div>
+
+                  {/* Template Cards Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {(templateCategory === 'outreach' ? outreachTemplates : followupTemplates).map(template => (
+                      <button
+                        key={template.id}
+                        type="button"
+                        onClick={() => selectTemplateCard(template)}
+                        className={`text-left p-4 rounded-xl border-2 transition-all hover:shadow-md ${
+                          selectedTemplate === template.id
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border hover:border-primary/50'
+                        }`}
+                      >
+                        <div className="font-medium text-sm text-foreground mb-1">
+                          {template.name.replace('Outreach - ', '').replace('Follow-up - ', '')}
+                        </div>
+                        <div className="text-xs text-primary/80 mb-2 truncate">
+                          {template.subject}
+                        </div>
+                        <div className="text-xs text-muted-foreground line-clamp-2">
+                          {getTemplatePreview(template.body)}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Blank template option */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedTemplate('')
+                      setEmailForm({ ...emailForm, subject: '', body: '' })
+                      setEmailTab('compose')
+                    }}
+                    className="w-full mt-3 p-4 rounded-xl border-2 border-dashed border-border hover:border-primary/50 text-center transition-all"
+                  >
+                    <PlusIcon className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
+                    <div className="text-sm text-muted-foreground">Start from scratch</div>
+                  </button>
+                </div>
+              )}
+
+              {/* Compose Tab */}
+              {emailTab === 'compose' && (
+                <div className="flex-1 overflow-y-auto">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-border h-full">
+                    {/* Editor Side */}
+                    <div className="p-4 space-y-4">
+                      <div>
+                        <label className="input-label">To</label>
+                        <input
+                          type="email"
+                          value={emailForm.to}
+                          onChange={(e) => setEmailForm({ ...emailForm, to: e.target.value })}
+                          className="input-field"
+                          placeholder="contact@example.com"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="input-label">Subject</label>
+                        <input
+                          type="text"
+                          value={emailForm.subject}
+                          onChange={(e) => setEmailForm({ ...emailForm, subject: e.target.value })}
+                          className="input-field"
+                          placeholder="Subject line..."
+                          required
+                        />
+                      </div>
+
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="input-label mb-0">Body</label>
+                          <div className="flex gap-1">
+                            <button
+                              type="button"
+                              onClick={() => insertPlaceholder('{domain}')}
+                              className="text-xs px-2 py-1 rounded bg-muted hover:bg-muted/80 text-muted-foreground transition-colors"
+                              title="Insert domain placeholder"
+                            >
+                              +domain
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => insertPlaceholder('{url}')}
+                              className="text-xs px-2 py-1 rounded bg-muted hover:bg-muted/80 text-muted-foreground transition-colors"
+                              title="Insert URL placeholder"
+                            >
+                              +url
+                            </button>
+                          </div>
+                        </div>
+                        <textarea
+                          name="emailBody"
+                          value={emailForm.body}
+                          onChange={(e) => setEmailForm({ ...emailForm, body: e.target.value })}
+                          className="input-field font-mono text-xs leading-relaxed"
+                          rows={12}
+                          placeholder="Write your email here... HTML is supported."
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    {/* Preview Side */}
+                    <div className="p-4 bg-muted/20">
+                      <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
+                        Live Preview
+                      </div>
+                      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-border overflow-hidden">
+                        {/* Email Header Preview */}
+                        <div className="px-4 py-3 border-b border-border bg-muted/30">
+                          <div className="text-xs text-muted-foreground mb-1">To: {emailForm.to || 'recipient@example.com'}</div>
+                          <div className="font-medium text-sm">{emailForm.subject || 'No subject'}</div>
+                        </div>
+                        {/* Email Body Preview */}
+                        <div
+                          className="p-4 prose prose-sm dark:prose-invert max-w-none min-h-[250px] text-sm"
+                          dangerouslySetInnerHTML={{
+                            __html: emailForm.body
+                              .replace(/\{domain\}/g, `<span class="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1 rounded">${emailProspect.rootDomain}</span>`)
+                              .replace(/\{url\}/g, `<span class="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-1 rounded text-xs">${emailProspect.referringPageUrl}</span>`)
+                              || '<p class="text-muted-foreground italic">Your email preview will appear here...</p>'
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Footer */}
+              <div className="modal-footer flex-shrink-0 border-t border-border">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  {selectedTemplate && (
+                    <span className="bg-muted px-2 py-1 rounded">
+                      Using: {emailTemplates.find(t => t.id === selectedTemplate)?.name.replace('Outreach - ', '').replace('Follow-up - ', '')}
+                    </span>
                   )}
-                </button>
+                </div>
+                <div className="flex gap-2">
+                  {emailTab === 'compose' && (
+                    <button
+                      type="button"
+                      onClick={() => setEmailTab('templates')}
+                      className="btn-secondary"
+                    >
+                      Back to Templates
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowEmailModal(false)}
+                    className="btn-secondary"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={sendingEmail || !gmailConnected || emailTab === 'templates'}
+                    className="btn-primary"
+                  >
+                    {sendingEmail ? (
+                      <>
+                        <div className="spinner-sm border-white/30 border-t-white"></div>
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <PaperAirplaneIcon className="h-4 w-4" />
+                        Send Email
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
