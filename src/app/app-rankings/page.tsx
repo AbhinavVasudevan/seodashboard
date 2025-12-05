@@ -359,14 +359,14 @@ export default function AppRankingsPage() {
                 <table className="min-w-full divide-y divide-border">
                   <thead className="bg-muted/50 sticky top-0 z-10">
                     <tr>
-                      <th className="sticky left-0 z-20 bg-muted/50 px-4 py-3 text-left text-xs font-semibold text-muted-foreground border-r border-border">
+                      <th className="sticky left-0 z-20 bg-muted/50 px-4 py-3 text-left text-xs font-semibold text-muted-foreground">
                         Keyword
                       </th>
-                      <th className="px-2 py-3 text-right text-xs font-semibold text-muted-foreground min-w-[60px]">
-                        Traffic
+                      <th className="sticky left-[140px] z-20 bg-muted/50 px-3 py-3 text-right text-xs font-semibold text-muted-foreground">
+                        <span className="text-blue-600">Traffic</span>
                       </th>
-                      <th className="px-2 py-3 text-right text-xs font-semibold text-muted-foreground min-w-[50px] border-r border-border">
-                        {selectedStore === 'IOS' ? 'iOS' : 'Android'}
+                      <th className="sticky left-[210px] z-20 bg-muted/50 px-3 py-3 text-right text-xs font-semibold text-muted-foreground border-r border-border">
+                        <span className="text-purple-600">{selectedStore === 'IOS' ? 'iOS' : 'Android'}</span>
                       </th>
                       {filteredApps.map(app => (
                         <th key={app.id} className="px-2 py-3 text-center min-w-[100px]">
@@ -390,15 +390,15 @@ export default function AppRankingsPage() {
                   </thead>
                   <tbody className="bg-card divide-y divide-border">
                     {filteredRows.map((row) => (
-                      <tr key={`${row.keyword}-${row.country}`} className="hover:bg-muted/30 transition-colors">
-                        <td className="sticky left-0 z-10 px-4 py-2.5 whitespace-nowrap text-sm font-medium text-foreground border-r border-border bg-card">
+                      <tr key={`${row.keyword}-${row.country}`} className="hover:bg-muted/30 transition-colors group">
+                        <td className="sticky left-0 z-10 px-4 py-2.5 whitespace-nowrap text-sm font-medium text-foreground bg-card group-hover:bg-muted/30">
                           {row.keyword}
                         </td>
-                        <td className="px-2 py-2.5 text-right text-xs text-muted-foreground tabular-nums">
-                          {row.traffic?.toLocaleString() || '-'}
+                        <td className="sticky left-[140px] z-10 px-3 py-2.5 text-right text-xs tabular-nums bg-card group-hover:bg-muted/30">
+                          <span className="text-blue-600 font-medium">{row.traffic?.toLocaleString() || '-'}</span>
                         </td>
-                        <td className="px-2 py-2.5 text-right text-xs text-muted-foreground tabular-nums border-r border-border">
-                          {(selectedStore === 'IOS' ? row.iosSearchVolume : row.androidSearchVolume)?.toLocaleString() || '-'}
+                        <td className="sticky left-[210px] z-10 px-3 py-2.5 text-right text-xs tabular-nums bg-card group-hover:bg-muted/30 border-r border-border">
+                          <span className="text-purple-600 font-medium">{(selectedStore === 'IOS' ? row.iosSearchVolume : row.androidSearchVolume)?.toLocaleString() || '-'}</span>
                         </td>
                         {filteredApps.map(app => {
                           const data = row.appRankings[app.id]
