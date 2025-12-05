@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeftIcon, PlusIcon, DocumentTextIcon, CloudArrowUpIcon, ChartBarIcon } from '@heroicons/react/24/outline'
+import { ArrowLeftIcon, PlusIcon, DocumentTextIcon, CloudArrowUpIcon, ChartBarIcon, PencilIcon, XMarkIcon, CheckIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline'
 import { getCountryFlag } from '@/lib/utils'
 
 interface App {
@@ -17,6 +17,9 @@ interface Keyword {
   id: string
   keyword: string
   country: string
+  traffic: number | null
+  iosSearchVolume: number | null
+  androidSearchVolume: number | null
   createdAt: string
 }
 
@@ -48,6 +51,12 @@ export default function AppDetailPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [isClearing, setIsClearing] = useState(false)
+  const [editingKeywordId, setEditingKeywordId] = useState<string | null>(null)
+  const [editVolumes, setEditVolumes] = useState({ traffic: '', iosSearchVolume: '', androidSearchVolume: '' })
+  const [showBulkImport, setShowBulkImport] = useState(false)
+  const [bulkImportText, setBulkImportText] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   useEffect(() => {
     fetchAppData()
@@ -125,6 +134,120 @@ export default function AppDetailPage() {
     }
   }
 
+  const startEditing = (kw: Keyword) => {
+    setEditingKeywordId(kw.id)
+    setEditVolumes({
+      traffic: kw.traffic?.toString() || '',
+      iosSearchVolume: kw.iosSearchVolume?.toString() || '',
+      androidSearchVolume: kw.androidSearchVolume?.toString() || ''
+    })
+  }
+
+  const cancelEditing = () => {
+    setEditingKeywordId(null)
+    setEditVolumes({ traffic: '', iosSearchVolume: '', androidSearchVolume: '' })
+  }
+
+  const saveVolume = async (keywordId: string) => {
+    setIsSaving(true)
+    try {
+      const response = await fetch('/api/keywords/volumes', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          keywordId,
+          traffic: editVolumes.traffic ? parseInt(editVolumes.traffic) : null,
+          iosSearchVolume: editVolumes.iosSearchVolume ? parseInt(editVolumes.iosSearchVolume) : null,
+          androidSearchVolume: editVolumes.androidSearchVolume ? parseInt(editVolumes.androidSearchVolume) : null
+        })
+      })
+
+      if (response.ok) {
+        setKeywords(prev => prev.map(kw =>
+          kw.id === keywordId
+            ? {
+                ...kw,
+                traffic: editVolumes.traffic ? parseInt(editVolumes.traffic) : null,
+                iosSearchVolume: editVolumes.iosSearchVolume ? parseInt(editVolumes.iosSearchVolume) : null,
+                androidSearchVolume: editVolumes.androidSearchVolume ? parseInt(editVolumes.androidSearchVolume) : null
+              }
+            : kw
+        ))
+        setEditingKeywordId(null)
+        setSaveMessage({ type: 'success', text: 'Saved!' })
+        setTimeout(() => setSaveMessage(null), 2000)
+      } else {
+        throw new Error('Failed to save')
+      }
+    } catch (err) {
+      setSaveMessage({ type: 'error', text: 'Failed to save' })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleBulkImport = async () => {
+    if (!bulkImportText.trim()) return
+
+    setIsSaving(true)
+    setSaveMessage(null)
+
+    try {
+      // Parse the pasted data (tab or comma separated)
+      const lines = bulkImportText.trim().split('\n')
+      const keywordsToUpdate = []
+
+      for (const line of lines) {
+        // Try tab first, then comma
+        const parts = line.includes('\t') ? line.split('\t') : line.split(',')
+        if (parts.length >= 2) {
+          const keyword = parts[0].trim().toLowerCase()
+          const traffic = parseInt(parts[1]) || null
+          const iosSearchVolume = parts[2] ? parseInt(parts[2]) || null : null
+          const androidSearchVolume = parts[3] ? parseInt(parts[3]) || null : null
+
+          if (keyword) {
+            keywordsToUpdate.push({
+              keyword,
+              country: 'US', // Default country for ASO
+              traffic,
+              iosSearchVolume,
+              androidSearchVolume
+            })
+          }
+        }
+      }
+
+      if (keywordsToUpdate.length === 0) {
+        throw new Error('No valid keywords found in input')
+      }
+
+      const response = await fetch('/api/keywords/volumes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keywords: keywordsToUpdate, appId })
+      })
+
+      const result = await response.json()
+
+      if (response.ok && result.success) {
+        setSaveMessage({
+          type: 'success',
+          text: `Updated ${result.data.updated} keywords, created ${result.data.created} new`
+        })
+        setShowBulkImport(false)
+        setBulkImportText('')
+        fetchAppData() // Refresh the data
+      } else {
+        throw new Error(result.error || 'Import failed')
+      }
+    } catch (err) {
+      setSaveMessage({ type: 'error', text: err instanceof Error ? err.message : 'Import failed' })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   // Generate date headers for last 5 days
   const generateDateHeaders = () => {
     const headers = []
@@ -158,13 +281,17 @@ export default function AppDetailPage() {
     const keywordMap = new Map()
     const dateHeaders = generateDateHeaders()
 
-    // First, add all keywords from the keywords list
+    // First, add all keywords from the keywords list (includes volume data)
     keywordsData.forEach((kw) => {
       const key = `${kw.keyword}-${kw.country}`
       if (!keywordMap.has(key)) {
         keywordMap.set(key, {
+          id: kw.id,
           keyword: kw.keyword,
           country: kw.country,
+          traffic: kw.traffic,
+          iosSearchVolume: kw.iosSearchVolume,
+          androidSearchVolume: kw.androidSearchVolume,
           dateRankings: []
         })
       }
@@ -177,8 +304,12 @@ export default function AppDetailPage() {
 
       if (!keywordMap.has(key)) {
         keywordMap.set(key, {
+          id: null,
           keyword: ranking.keyword,
           country: ranking.country,
+          traffic: null,
+          iosSearchVolume: null,
+          androidSearchVolume: null,
           dateRankings: []
         })
       }
@@ -290,6 +421,13 @@ export default function AppDetailPage() {
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-gray-900">ASO Keyword Rankings</h2>
             <div className="flex gap-2">
+              <button
+                onClick={() => setShowBulkImport(true)}
+                className="btn-secondary flex items-center gap-2"
+              >
+                <ArrowUpTrayIcon className="h-4 w-4" />
+                Import Volumes
+              </button>
               <Link
                 href={`/brands/${brandId}/apps/${appId}/keywords/new`}
                 className="btn-secondary flex items-center gap-2"
@@ -306,6 +444,12 @@ export default function AppDetailPage() {
               </Link>
             </div>
           </div>
+
+          {saveMessage && (
+            <div className={`mb-4 p-3 rounded-lg text-sm ${saveMessage.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+              {saveMessage.text}
+            </div>
+          )}
           
           {keywords.length === 0 && rankings.length === 0 ? (
             <div className="card text-center py-12">
@@ -327,6 +471,18 @@ export default function AppDetailPage() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Country
                       </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Traffic
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        iOS Vol
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Android Vol
+                      </th>
+                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Edit
+                      </th>
                       {/* Generate date headers for last 5 days */}
                       {generateDateHeaders().map((dateHeader) => (
                         <th key={dateHeader.date} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -336,7 +492,11 @@ export default function AppDetailPage() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {generateKeywordRankingData(keywords, rankings).map((keywordData) => (
+                    {generateKeywordRankingData(keywords, rankings).map((keywordData) => {
+                      const isEditing = editingKeywordId === keywordData.id
+                      const kwForEdit = keywords.find(k => k.id === keywordData.id)
+
+                      return (
                       <tr key={`${keywordData.keyword}-${keywordData.country}`}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           {keywordData.keyword}
@@ -346,6 +506,77 @@ export default function AppDetailPage() {
                             <span>{getCountryFlag(keywordData.country)}</span>
                             <span>{keywordData.country}</span>
                           </span>
+                        </td>
+                        {/* Volume columns */}
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {isEditing ? (
+                            <input
+                              type="number"
+                              value={editVolumes.traffic}
+                              onChange={(e) => setEditVolumes(prev => ({ ...prev, traffic: e.target.value }))}
+                              className="w-20 px-2 py-1 text-xs border rounded"
+                              placeholder="0"
+                            />
+                          ) : (
+                            keywordData.traffic?.toLocaleString() || '-'
+                          )}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {isEditing ? (
+                            <input
+                              type="number"
+                              value={editVolumes.iosSearchVolume}
+                              onChange={(e) => setEditVolumes(prev => ({ ...prev, iosSearchVolume: e.target.value }))}
+                              className="w-20 px-2 py-1 text-xs border rounded"
+                              placeholder="0"
+                            />
+                          ) : (
+                            keywordData.iosSearchVolume?.toLocaleString() || '-'
+                          )}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {isEditing ? (
+                            <input
+                              type="number"
+                              value={editVolumes.androidSearchVolume}
+                              onChange={(e) => setEditVolumes(prev => ({ ...prev, androidSearchVolume: e.target.value }))}
+                              className="w-20 px-2 py-1 text-xs border rounded"
+                              placeholder="0"
+                            />
+                          ) : (
+                            keywordData.androidSearchVolume?.toLocaleString() || '-'
+                          )}
+                        </td>
+                        <td className="px-2 py-4 whitespace-nowrap text-sm">
+                          {keywordData.id && (
+                            isEditing ? (
+                              <div className="flex gap-1">
+                                <button
+                                  onClick={() => saveVolume(keywordData.id)}
+                                  disabled={isSaving}
+                                  className="p-1 text-green-600 hover:bg-green-50 rounded"
+                                  title="Save"
+                                >
+                                  <CheckIcon className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={cancelEditing}
+                                  className="p-1 text-gray-600 hover:bg-gray-50 rounded"
+                                  title="Cancel"
+                                >
+                                  <XMarkIcon className="h-4 w-4" />
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => kwForEdit && startEditing(kwForEdit)}
+                                className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded"
+                                title="Edit volumes"
+                              >
+                                <PencilIcon className="h-4 w-4" />
+                              </button>
+                            )
+                          )}
                         </td>
                         {keywordData.dateRankings.map((dateRanking: any, dateIdx: number) => {
                           // Calculate change from previous day
@@ -398,7 +629,7 @@ export default function AppDetailPage() {
                           )
                         })}
                       </tr>
-                    ))}
+                    )})}
                   </tbody>
                 </table>
               </div>
@@ -406,6 +637,65 @@ export default function AppDetailPage() {
           )}
         </div>
       </main>
+
+      {/* Bulk Import Modal */}
+      {showBulkImport && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-lg font-semibold">Import Keyword Volumes</h3>
+              <button
+                onClick={() => { setShowBulkImport(false); setBulkImportText(''); setSaveMessage(null) }}
+                className="p-1 hover:bg-gray-100 rounded"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4">
+              {saveMessage && (
+                <div className={`p-3 rounded-lg text-sm ${saveMessage.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                  {saveMessage.text}
+                </div>
+              )}
+
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+                <p className="font-medium mb-1">Paste data from Google Sheets</p>
+                <p className="text-xs">Format: Keyword, Traffic, iOS Vol, Android Vol (tab or comma separated)</p>
+                <p className="text-xs mt-1">Example:</p>
+                <code className="text-xs block mt-1 bg-blue-100 p-1 rounded">
+                  betting	7166	1298	1271<br/>
+                  casino	781	800	785
+                </code>
+              </div>
+
+              <textarea
+                value={bulkImportText}
+                onChange={(e) => setBulkImportText(e.target.value)}
+                className="w-full h-48 p-3 border rounded-lg text-sm font-mono"
+                placeholder="Paste your keyword data here..."
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 p-4 border-t">
+              <button
+                onClick={() => { setShowBulkImport(false); setBulkImportText(''); setSaveMessage(null) }}
+                className="btn-secondary"
+                disabled={isSaving}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBulkImport}
+                disabled={!bulkImportText.trim() || isSaving}
+                className="btn-primary"
+              >
+                {isSaving ? 'Importing...' : 'Import Volumes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

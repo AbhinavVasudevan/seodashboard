@@ -87,16 +87,19 @@ model AppRanking {
 }
 
 model Keyword {
-  id        String           @id @default(cuid())
-  keyword   String
-  country   String
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
-  brandId   String?
-  appId     String?
-  rankings  KeywordRanking[]
-  app       App?             @relation(fields: [appId], references: [id], onDelete: Cascade)
-  brand     Brand?           @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  id                  String           @id @default(cuid())
+  keyword             String
+  country             String
+  traffic             Int?             // Search volume / traffic estimate
+  iosSearchVolume     Int?             // iOS App Store search volume
+  androidSearchVolume Int?             // Android Play Store search volume
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  brandId             String?
+  appId               String?
+  rankings            KeywordRanking[]
+  app                 App?             @relation(fields: [appId], references: [id], onDelete: Cascade)
+  brand               Brand?           @relation(fields: [brandId], references: [id], onDelete: Cascade)
 
   @@unique([brandId, keyword, country])
   @@unique([appId, keyword, country])

@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { keyword, country, brandId, appId } = body
+    const { keyword, country, brandId, appId, traffic, iosSearchVolume, androidSearchVolume } = body
 
     if (!keyword || !country) {
       return NextResponse.json(
@@ -110,6 +110,9 @@ export async function POST(request: NextRequest) {
         country: country.toUpperCase(),
         brandId: brandId || null,
         appId: appId || null,
+        traffic: traffic || null,
+        iosSearchVolume: iosSearchVolume || null,
+        androidSearchVolume: androidSearchVolume || null,
       },
     })
 
