@@ -81,7 +81,15 @@ export async function fetchSEMRushProjects(): Promise<SEMRushProject[]> {
     throw new Error(`Failed to fetch SEMRush projects: ${response.status} ${response.statusText}`);
   }
 
-  const projects: SEMRushProject[] = await response.json();
+  const data = await response.json();
+
+  // Validate that response is an array
+  if (!Array.isArray(data)) {
+    console.error('SEMRush projects API returned non-array:', data);
+    throw new Error(`SEMRush API error: ${data?.error || data?.message || 'Invalid response format'}`);
+  }
+
+  const projects: SEMRushProject[] = data;
 
   // Filter for projects that have "tracking" tool
   return projects.filter(project =>
@@ -105,7 +113,15 @@ export async function fetchSEMRushCampaigns(projectId: number): Promise<SEMRushC
     throw new Error(`Failed to fetch campaigns for project ${projectId}: ${response.status} ${response.statusText}`);
   }
 
-  return await response.json();
+  const data = await response.json();
+
+  // Validate that response is an array
+  if (!Array.isArray(data)) {
+    console.error(`SEMRush campaigns API returned non-array for project ${projectId}:`, data);
+    throw new Error(`SEMRush API error: ${data?.error || data?.message || 'Invalid response format'}`);
+  }
+
+  return data;
 }
 
 /**
