@@ -12,7 +12,8 @@ import {
   ArrowPathIcon,
   CheckCircleIcon,
   ClockIcon,
-  ExclamationCircleIcon
+  ExclamationCircleIcon,
+  InboxIcon
 } from '@heroicons/react/24/outline'
 
 interface Prospect {
@@ -39,13 +40,13 @@ interface Prospect {
 }
 
 const STATUS_OPTIONS = [
-  { value: 'NOT_CONTACTED', label: 'Not Contacted', color: 'bg-gray-100 text-gray-800', icon: ClockIcon },
-  { value: 'CONTACTED', label: 'Contacted', color: 'bg-blue-100 text-blue-800', icon: EnvelopeIcon },
-  { value: 'RESPONDED', label: 'Responded', color: 'bg-cyan-100 text-cyan-800', icon: ArrowPathIcon },
-  { value: 'NEGOTIATING', label: 'Negotiating', color: 'bg-yellow-100 text-yellow-800', icon: PhoneIcon },
-  { value: 'DEAL_LOCKED', label: 'Deal Locked', color: 'bg-green-100 text-green-800', icon: CheckCircleIcon },
-  { value: 'REJECTED', label: 'Rejected', color: 'bg-red-100 text-red-800', icon: ExclamationCircleIcon },
-  { value: 'NO_RESPONSE', label: 'No Response', color: 'bg-orange-100 text-orange-800', icon: ExclamationCircleIcon },
+  { value: 'NOT_CONTACTED', label: 'Not Contacted', color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300', icon: ClockIcon },
+  { value: 'CONTACTED', label: 'Contacted', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300', icon: EnvelopeIcon },
+  { value: 'RESPONDED', label: 'Responded', color: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300', icon: ArrowPathIcon },
+  { value: 'NEGOTIATING', label: 'Negotiating', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300', icon: PhoneIcon },
+  { value: 'DEAL_LOCKED', label: 'Deal Locked', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300', icon: CheckCircleIcon },
+  { value: 'REJECTED', label: 'Rejected', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300', icon: ExclamationCircleIcon },
+  { value: 'NO_RESPONSE', label: 'No Response', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300', icon: ExclamationCircleIcon },
 ]
 
 const CONTACT_METHODS = [
@@ -58,7 +59,7 @@ const CONTACT_METHODS = [
 export default function ProspectsPage() {
   const [prospects, setProspects] = useState<Prospect[]>([])
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('NOT_CONTACTED') // Default to NOT_CONTACTED
   const [sourceFilter, setSourceFilter] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -223,7 +224,7 @@ export default function ProspectsPage() {
   }
 
   const getStatusColor = (status: string) => {
-    return STATUS_OPTIONS.find(s => s.value === status)?.color || 'bg-gray-100 text-gray-800'
+    return STATUS_OPTIONS.find(s => s.value === status)?.color || 'bg-gray-100 text-gray-700'
   }
 
   const getStatusLabel = (status: string) => {
@@ -249,13 +250,23 @@ export default function ProspectsPage() {
     return matchesSearch && matchesSource
   })
 
-  // Stats
+  // Stats - fetch all for stats display
+  const [allProspects, setAllProspects] = useState<Prospect[]>([])
+
+  useEffect(() => {
+    // Fetch all prospects for stats
+    fetch('/api/backlink-prospects')
+      .then(res => res.json())
+      .then(data => setAllProspects(data))
+      .catch(console.error)
+  }, [prospects]) // Refetch when prospects change
+
   const stats = {
-    total: prospects.length,
-    notContacted: prospects.filter(p => p.status === 'NOT_CONTACTED').length,
-    contacted: prospects.filter(p => ['CONTACTED', 'RESPONDED', 'NEGOTIATING'].includes(p.status)).length,
-    locked: prospects.filter(p => p.status === 'DEAL_LOCKED').length,
-    rejected: prospects.filter(p => ['REJECTED', 'NO_RESPONSE'].includes(p.status)).length,
+    total: allProspects.length,
+    notContacted: allProspects.filter(p => p.status === 'NOT_CONTACTED').length,
+    contacted: allProspects.filter(p => ['CONTACTED', 'RESPONDED', 'NEGOTIATING'].includes(p.status)).length,
+    locked: allProspects.filter(p => p.status === 'DEAL_LOCKED').length,
+    rejected: allProspects.filter(p => ['REJECTED', 'NO_RESPONSE'].includes(p.status)).length,
   }
 
   // Get next status options based on current status
@@ -274,410 +285,408 @@ export default function ProspectsPage() {
     }
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-secondary-50">
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Backlink Prospects</h1>
-              <p className="text-gray-600 mt-1">Manage and track your outreach efforts</p>
-            </div>
-            <button
-              onClick={() => { resetForm(); setShowModal(true) }}
-              className="btn-primary flex items-center gap-2"
-            >
-              <PlusIcon className="h-5 w-5" />
-              Add Prospect
-            </button>
-          </div>
-        </div>
-      </header>
+  const getDRColor = (dr: number | null) => {
+    if (!dr) return 'text-muted-foreground'
+    if (dr >= 50) return 'text-green-600 font-semibold'
+    if (dr >= 30) return 'text-amber-600 font-medium'
+    return 'text-foreground'
+  }
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  return (
+    <div className="page-container">
+      {/* Page Header */}
+      <div className="page-header">
+        <div className="page-header-content">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-primary/10 rounded-xl">
+              <InboxIcon className="h-8 w-8 text-primary" />
+            </div>
+            <div>
+              <h1 className="page-title">Backlink Prospects</h1>
+              <p className="text-sm text-muted-foreground">Manage and track your outreach efforts</p>
+            </div>
+          </div>
+          <button
+            onClick={() => { resetForm(); setShowModal(true) }}
+            className="btn-primary"
+          >
+            <PlusIcon className="h-4 w-4" />
+            Add Prospect
+          </button>
+        </div>
+      </div>
+
+      <div className="page-content">
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-          <div
-            className={`card cursor-pointer hover:ring-2 hover:ring-gray-400 ${statusFilter === '' ? 'ring-2 ring-gray-400' : ''}`}
+          <button
             onClick={() => setStatusFilter('')}
+            className={`stat-card hover:shadow-md transition-all text-left ${statusFilter === '' ? 'ring-2 ring-primary' : ''}`}
           >
-            <div className="text-sm font-medium text-gray-600">Total</div>
-            <div className="text-2xl font-semibold text-gray-900">{stats.total}</div>
-          </div>
-          <div
-            className={`card cursor-pointer hover:ring-2 hover:ring-gray-400 ${statusFilter === 'NOT_CONTACTED' ? 'ring-2 ring-gray-400' : ''}`}
+            <div className="stat-value text-foreground">{stats.total}</div>
+            <div className="stat-label">Total</div>
+          </button>
+          <button
             onClick={() => setStatusFilter('NOT_CONTACTED')}
+            className={`stat-card hover:shadow-md transition-all text-left ${statusFilter === 'NOT_CONTACTED' ? 'ring-2 ring-gray-500' : ''}`}
           >
-            <div className="text-sm font-medium text-gray-600">Not Contacted</div>
-            <div className="text-2xl font-semibold text-gray-500">{stats.notContacted}</div>
-          </div>
-          <div
-            className={`card cursor-pointer hover:ring-2 hover:ring-blue-400`}
+            <div className="stat-value text-muted-foreground">{stats.notContacted}</div>
+            <div className="stat-label">Not Contacted</div>
+          </button>
+          <button
             onClick={() => setStatusFilter('CONTACTED')}
+            className={`stat-card hover:shadow-md transition-all text-left ${statusFilter === 'CONTACTED' ? 'ring-2 ring-blue-500' : ''}`}
           >
-            <div className="text-sm font-medium text-gray-600">In Progress</div>
-            <div className="text-2xl font-semibold text-blue-600">{stats.contacted}</div>
-          </div>
-          <div
-            className={`card cursor-pointer hover:ring-2 hover:ring-green-400 ${statusFilter === 'DEAL_LOCKED' ? 'ring-2 ring-green-400' : ''}`}
+            <div className="stat-value text-blue-600">{stats.contacted}</div>
+            <div className="stat-label">In Progress</div>
+          </button>
+          <button
             onClick={() => setStatusFilter('DEAL_LOCKED')}
+            className={`stat-card hover:shadow-md transition-all text-left ${statusFilter === 'DEAL_LOCKED' ? 'ring-2 ring-green-500' : ''}`}
           >
-            <div className="text-sm font-medium text-gray-600">Deal Locked</div>
-            <div className="text-2xl font-semibold text-green-600">{stats.locked}</div>
-          </div>
-          <div
-            className={`card cursor-pointer hover:ring-2 hover:ring-red-400`}
+            <div className="stat-value text-green-600">{stats.locked}</div>
+            <div className="stat-label">Deal Locked</div>
+          </button>
+          <button
             onClick={() => setStatusFilter('REJECTED')}
+            className={`stat-card hover:shadow-md transition-all text-left ${statusFilter === 'REJECTED' ? 'ring-2 ring-red-500' : ''}`}
           >
-            <div className="text-sm font-medium text-gray-600">Rejected/No Response</div>
-            <div className="text-2xl font-semibold text-red-600">{stats.rejected}</div>
-          </div>
+            <div className="stat-value text-red-600">{stats.rejected}</div>
+            <div className="stat-label">Rejected/No Response</div>
+          </button>
         </div>
 
         {/* Filters */}
-        <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="relative">
-            <MagnifyingGlassIcon className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+        <div className="filter-bar mb-4">
+          <div className="relative flex-1 max-w-md">
+            <MagnifyingGlassIcon className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
               placeholder="Search by URL, domain, or email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="input-field pl-10"
+              className="input-field pl-9"
             />
           </div>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="input-field"
+            className="input-field w-auto"
           >
             <option value="">All Statuses</option>
             {STATUS_OPTIONS.map(s => (
               <option key={s.value} value={s.value}>{s.label}</option>
             ))}
           </select>
-          <select
-            value={sourceFilter}
-            onChange={(e) => setSourceFilter(e.target.value)}
-            className="input-field"
-          >
-            <option value="">All Sources</option>
-            {uniqueSources.map(source => (
-              <option key={source} value={source || ''}>{source || 'Unknown'}</option>
-            ))}
-          </select>
+          {uniqueSources.length > 0 && (
+            <select
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value)}
+              className="input-field w-auto"
+            >
+              <option value="">All Sources</option>
+              {uniqueSources.map(source => (
+                <option key={source} value={source || ''}>{source?.replace('ahrefs-', '') || 'Unknown'}</option>
+              ))}
+            </select>
+          )}
         </div>
 
         {/* Table */}
-        <div className="card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Domain</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">DR</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Traffic</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contacted</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Source</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quick Actions</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {isLoading ? (
+        <div className="table-container">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="spinner-md text-primary"></div>
+            </div>
+          ) : (
+            <div className="table-wrapper scrollbar-thin">
+              <table className="data-table">
+                <thead>
                   <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
-                      Loading...
-                    </td>
+                    <th>Domain</th>
+                    <th>DR</th>
+                    <th>Traffic</th>
+                    <th>Status</th>
+                    <th>Contacted</th>
+                    <th>Source</th>
+                    <th>Quick Actions</th>
+                    <th>Actions</th>
                   </tr>
-                ) : filteredProspects.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
-                      <div className="flex flex-col items-center gap-2">
-                        <ExclamationCircleIcon className="h-12 w-12 text-gray-300" />
-                        <p>No prospects found</p>
-                        <p className="text-sm">Import competitor backlinks to find new opportunities</p>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  filteredProspects.map(prospect => {
-                    const daysSince = getDaysSinceContacted(prospect.contactedOn)
-                    const needsFollowup = prospect.status === 'CONTACTED' && daysSince !== null && daysSince > 7
+                </thead>
+                <tbody>
+                  {filteredProspects.length === 0 ? (
+                    <tr>
+                      <td colSpan={8}>
+                        <div className="empty-state">
+                          <InboxIcon className="empty-state-icon" />
+                          <p className="empty-state-title">No prospects found</p>
+                          <p className="empty-state-description">
+                            {searchTerm ? 'Try adjusting your search' : 'Import competitor backlinks to find new opportunities'}
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredProspects.map(prospect => {
+                      const daysSince = getDaysSinceContacted(prospect.contactedOn)
+                      const needsFollowup = prospect.status === 'CONTACTED' && daysSince !== null && daysSince > 7
 
-                    return (
-                      <tr key={prospect.id} className={`hover:bg-gray-50 ${needsFollowup ? 'bg-orange-50' : ''}`}>
-                        <td className="px-4 py-4">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">{prospect.rootDomain}</div>
-                            <a
-                              href={prospect.referringPageUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs text-blue-600 hover:text-blue-800 truncate block max-w-xs"
-                            >
-                              {prospect.referringPageUrl}
-                            </a>
-                            {prospect.contactEmail && (
-                              <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                                <EnvelopeIcon className="h-3 w-3" />
-                                {prospect.contactEmail}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <span className={`font-medium ${prospect.domainRating && prospect.domainRating >= 50 ? 'text-green-600' : 'text-gray-900'}`}>
-                            {prospect.domainRating || '-'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {prospect.domainTraffic ? prospect.domainTraffic.toLocaleString() : '-'}
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(prospect.status)}`}>
-                            {getStatusLabel(prospect.status)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm">
-                          {prospect.contactedOn ? (
+                      return (
+                        <tr key={prospect.id} className={needsFollowup ? 'bg-orange-50 dark:bg-orange-900/10' : ''}>
+                          <td>
                             <div>
-                              <div className="text-gray-900">
-                                {new Date(prospect.contactedOn).toLocaleDateString()}
-                              </div>
-                              {daysSince !== null && (
-                                <div className={`text-xs ${needsFollowup ? 'text-orange-600 font-medium' : 'text-gray-500'}`}>
-                                  {daysSince === 0 ? 'Today' : `${daysSince} days ago`}
-                                  {needsFollowup && ' - Follow up!'}
+                              <div className="cell-primary">{prospect.rootDomain}</div>
+                              <a
+                                href={prospect.referringPageUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-primary hover:underline truncate block max-w-[250px]"
+                              >
+                                {prospect.referringPageUrl.replace(/^https?:\/\/(www\.)?/, '').slice(0, 45)}...
+                              </a>
+                              {prospect.contactEmail && (
+                                <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                                  <EnvelopeIcon className="h-3 w-3" />
+                                  {prospect.contactEmail}
                                 </div>
                               )}
                             </div>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          {prospect.source && (
-                            <span className="px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded">
-                              {prospect.source.replace('ahrefs-', '')}
+                          </td>
+                          <td className="whitespace-nowrap">
+                            <span className={getDRColor(prospect.domainRating)}>
+                              {prospect.domainRating || '-'}
                             </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <div className="flex gap-1">
-                            {getNextStatuses(prospect.status).map(nextStatus => (
+                          </td>
+                          <td className="whitespace-nowrap text-muted-foreground">
+                            {prospect.domainTraffic ? prospect.domainTraffic.toLocaleString() : '-'}
+                          </td>
+                          <td className="whitespace-nowrap">
+                            <span className={`text-xs px-2 py-1 rounded-full ${getStatusColor(prospect.status)}`}>
+                              {getStatusLabel(prospect.status)}
+                            </span>
+                          </td>
+                          <td className="whitespace-nowrap">
+                            {prospect.contactedOn ? (
+                              <div>
+                                <div className="text-sm text-foreground">
+                                  {new Date(prospect.contactedOn).toLocaleDateString()}
+                                </div>
+                                {daysSince !== null && (
+                                  <div className={`text-xs ${needsFollowup ? 'text-orange-600 font-medium' : 'text-muted-foreground'}`}>
+                                    {daysSince === 0 ? 'Today' : `${daysSince}d ago`}
+                                    {needsFollowup && ' · Follow up!'}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </td>
+                          <td className="whitespace-nowrap">
+                            {prospect.source && (
+                              <span className="badge-purple text-[10px]">
+                                {prospect.source.replace('ahrefs-', '')}
+                              </span>
+                            )}
+                          </td>
+                          <td className="whitespace-nowrap">
+                            <div className="flex gap-1">
+                              {getNextStatuses(prospect.status).map(nextStatus => (
+                                <button
+                                  key={nextStatus}
+                                  onClick={() => handleQuickStatusUpdate(prospect.id, nextStatus)}
+                                  className={`px-2 py-1 text-[10px] rounded-full transition-opacity hover:opacity-80 ${
+                                    STATUS_OPTIONS.find(s => s.value === nextStatus)?.color
+                                  }`}
+                                  title={`Mark as ${getStatusLabel(nextStatus)}`}
+                                >
+                                  {getStatusLabel(nextStatus)}
+                                </button>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="whitespace-nowrap">
+                            <div className="flex gap-1">
                               <button
-                                key={nextStatus}
-                                onClick={() => handleQuickStatusUpdate(prospect.id, nextStatus)}
-                                className={`px-2 py-1 text-xs rounded ${
-                                  STATUS_OPTIONS.find(s => s.value === nextStatus)?.color
-                                } hover:opacity-80`}
-                                title={`Mark as ${getStatusLabel(nextStatus)}`}
+                                onClick={() => openEditModal(prospect)}
+                                className="action-btn"
+                                title="Edit"
                               >
-                                {getStatusLabel(nextStatus)}
+                                <PencilIcon className="h-4 w-4" />
                               </button>
-                            ))}
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => openEditModal(prospect)}
-                              className="text-indigo-600 hover:text-indigo-900"
-                              title="Edit"
-                            >
-                              <PencilIcon className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(prospect.id)}
-                              className="text-red-600 hover:text-red-900"
-                              title="Delete"
-                            >
-                              <TrashIcon className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                              <button
+                                onClick={() => handleDelete(prospect.id)}
+                                className="action-btn text-red-600 hover:text-red-700"
+                                title="Delete"
+                              >
+                                <TrashIcon className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-      </main>
+      </div>
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
-              <h2 className="text-xl font-bold">
+        <div className="modal-overlay">
+          <div className="modal-content max-w-2xl max-h-[90vh] flex flex-col">
+            <div className="modal-header flex-shrink-0">
+              <h3 className="modal-title">
                 {editingProspect ? 'Edit Prospect' : 'Add Prospect'}
-              </h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
-                <XMarkIcon className="h-6 w-6" />
+              </h3>
+              <button onClick={() => setShowModal(false)} className="action-btn">
+                <XMarkIcon className="h-5 w-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Referring Page URL *
-                  </label>
-                  <input
-                    type="url"
-                    value={formData.referringPageUrl}
-                    onChange={(e) => {
-                      setFormData({ ...formData, referringPageUrl: e.target.value })
-                      extractDomain(e.target.value)
-                    }}
-                    className="input-field"
-                    required
-                    placeholder="https://example.com/page"
-                  />
-                </div>
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+              <div className="modal-body overflow-y-auto flex-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="input-label">Referring Page URL *</label>
+                    <input
+                      type="url"
+                      value={formData.referringPageUrl}
+                      onChange={(e) => {
+                        setFormData({ ...formData, referringPageUrl: e.target.value })
+                        extractDomain(e.target.value)
+                      }}
+                      className="input-field"
+                      required
+                      placeholder="https://example.com/page"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Root Domain *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.rootDomain}
-                    onChange={(e) => setFormData({ ...formData, rootDomain: e.target.value })}
-                    className="input-field"
-                    required
-                    placeholder="example.com"
-                  />
-                </div>
+                  <div>
+                    <label className="input-label">Root Domain *</label>
+                    <input
+                      type="text"
+                      value={formData.rootDomain}
+                      onChange={(e) => setFormData({ ...formData, rootDomain: e.target.value })}
+                      className="input-field"
+                      required
+                      placeholder="example.com"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Status
-                  </label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="input-field"
-                  >
-                    {STATUS_OPTIONS.map(s => (
-                      <option key={s.value} value={s.value}>{s.label}</option>
-                    ))}
-                  </select>
-                </div>
+                  <div>
+                    <label className="input-label">Status</label>
+                    <select
+                      value={formData.status}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                      className="input-field"
+                    >
+                      {STATUS_OPTIONS.map(s => (
+                        <option key={s.value} value={s.value}>{s.label}</option>
+                      ))}
+                    </select>
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Domain Rating
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={formData.domainRating}
-                    onChange={(e) => setFormData({ ...formData, domainRating: e.target.value })}
-                    className="input-field"
-                    placeholder="0-100"
-                  />
-                </div>
+                  <div>
+                    <label className="input-label">Domain Rating</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={formData.domainRating}
+                      onChange={(e) => setFormData({ ...formData, domainRating: e.target.value })}
+                      className="input-field"
+                      placeholder="0-100"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Domain Traffic
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.domainTraffic}
-                    onChange={(e) => setFormData({ ...formData, domainTraffic: e.target.value })}
-                    className="input-field"
-                    placeholder="Monthly traffic"
-                  />
-                </div>
+                  <div>
+                    <label className="input-label">Domain Traffic</label>
+                    <input
+                      type="number"
+                      value={formData.domainTraffic}
+                      onChange={(e) => setFormData({ ...formData, domainTraffic: e.target.value })}
+                      className="input-field"
+                      placeholder="Monthly traffic"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Contacted On
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.contactedOn}
-                    onChange={(e) => setFormData({ ...formData, contactedOn: e.target.value })}
-                    className="input-field"
-                  />
-                </div>
+                  <div>
+                    <label className="input-label">Contacted On</label>
+                    <input
+                      type="date"
+                      value={formData.contactedOn}
+                      onChange={(e) => setFormData({ ...formData, contactedOn: e.target.value })}
+                      className="input-field"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Contact Method
-                  </label>
-                  <select
-                    value={formData.contactMethod}
-                    onChange={(e) => setFormData({ ...formData, contactMethod: e.target.value })}
-                    className="input-field"
-                  >
-                    <option value="">Select...</option>
-                    {CONTACT_METHODS.map(m => (
-                      <option key={m.value} value={m.value}>{m.label}</option>
-                    ))}
-                  </select>
-                </div>
+                  <div>
+                    <label className="input-label">Contact Method</label>
+                    <select
+                      value={formData.contactMethod}
+                      onChange={(e) => setFormData({ ...formData, contactMethod: e.target.value })}
+                      className="input-field"
+                    >
+                      <option value="">Select...</option>
+                      {CONTACT_METHODS.map(m => (
+                        <option key={m.value} value={m.value}>{m.label}</option>
+                      ))}
+                    </select>
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Contact Email
-                  </label>
-                  <input
-                    type="email"
-                    value={formData.contactEmail}
-                    onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
-                    className="input-field"
-                    placeholder="contact@example.com"
-                  />
-                </div>
+                  <div>
+                    <label className="input-label">Contact Email</label>
+                    <input
+                      type="email"
+                      value={formData.contactEmail}
+                      onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
+                      className="input-field"
+                      placeholder="contact@example.com"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Contact Form URL
-                  </label>
-                  <input
-                    type="url"
-                    value={formData.contactFormUrl}
-                    onChange={(e) => setFormData({ ...formData, contactFormUrl: e.target.value })}
-                    className="input-field"
-                    placeholder="https://example.com/contact"
-                  />
-                </div>
+                  <div>
+                    <label className="input-label">Contact Form URL</label>
+                    <input
+                      type="url"
+                      value={formData.contactFormUrl}
+                      onChange={(e) => setFormData({ ...formData, contactFormUrl: e.target.value })}
+                      className="input-field"
+                      placeholder="https://example.com/contact"
+                    />
+                  </div>
 
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Remarks
-                  </label>
-                  <textarea
-                    value={formData.remarks}
-                    onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
-                    className="input-field"
-                    rows={2}
-                    placeholder="Notes about this prospect..."
-                  />
-                </div>
+                  <div className="md:col-span-2">
+                    <label className="input-label">Remarks</label>
+                    <textarea
+                      value={formData.remarks}
+                      onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+                      className="input-field"
+                      rows={2}
+                      placeholder="Notes about this prospect..."
+                    />
+                  </div>
 
-                <div className="flex items-center">
-                  <label className="flex items-center">
+                  <div className="flex items-center gap-2">
                     <input
                       type="checkbox"
+                      id="nofollow"
                       checked={formData.nofollow}
                       onChange={(e) => setFormData({ ...formData, nofollow: e.target.checked })}
-                      className="h-4 w-4 text-primary-600 border-gray-300 rounded"
+                      className="h-4 w-4 text-primary rounded border-input focus:ring-ring"
                     />
-                    <span className="ml-2 text-sm text-gray-700">Nofollow Link</span>
-                  </label>
+                    <label htmlFor="nofollow" className="text-sm text-foreground">
+                      Nofollow Link
+                    </label>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t">
+              <div className="modal-footer flex-shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
