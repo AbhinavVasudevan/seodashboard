@@ -48,10 +48,11 @@ export async function GET(
         rootDomain: { in: Array.from(freeLinkDomains) }
       }
     } else {
-      // Default: exclude spam and free affiliates
+      // Default: exclude spam, free affiliates, and free links
       const excludedDomains = [
         ...Array.from(spamDomains),
-        ...Array.from(freeAffiliateDomains)
+        ...Array.from(freeAffiliateDomains),
+        ...Array.from(freeLinkDomains)
       ]
       if (excludedDomains.length > 0) {
         where = {
@@ -122,7 +123,7 @@ export async function GET(
     }))
 
     // Count hidden backlinks by type
-    const [spamCount, freeAffiliateCount] = await Promise.all([
+    const [spamCount, freeAffiliateCount, freeLinkCount] = await Promise.all([
       spamDomains.size > 0
         ? prisma.backlink.count({
             where: { brandId: id, rootDomain: { in: Array.from(spamDomains) } }
@@ -131,6 +132,11 @@ export async function GET(
       freeAffiliateDomains.size > 0
         ? prisma.backlink.count({
             where: { brandId: id, rootDomain: { in: Array.from(freeAffiliateDomains) } }
+          })
+        : 0,
+      freeLinkDomains.size > 0
+        ? prisma.backlink.count({
+            where: { brandId: id, rootDomain: { in: Array.from(freeLinkDomains) } }
           })
         : 0
     ])
@@ -145,7 +151,8 @@ export async function GET(
       hiddenCounts: {
         spam: spamCount,
         freeAffiliate: freeAffiliateCount,
-        total: spamCount + freeAffiliateCount
+        freeLink: freeLinkCount,
+        total: spamCount + freeAffiliateCount + freeLinkCount
       },
       categoryFilter
     })

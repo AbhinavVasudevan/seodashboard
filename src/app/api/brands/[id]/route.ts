@@ -15,6 +15,15 @@ export async function GET(
 
     const { id } = await params
 
+    // Get categorized domains to exclude from backlink count
+    const categorizedDomains = await prisma.blockedDomain.findMany({
+      select: { domain: true, type: true }
+    })
+
+    const excludedDomains = categorizedDomains
+      .filter(d => d.type === 'SPAM' || d.type === 'FREE_AFFILIATE' || d.type === 'FREE_LINK')
+      .map(d => d.domain)
+
     const brand = await prisma.brand.findUnique({
       where: { id },
       include: {
@@ -22,7 +31,6 @@ export async function GET(
           select: {
             apps: true,
             keywords: true,
-            backlinks: true,
             articles: true
           }
         }
@@ -33,7 +41,23 @@ export async function GET(
       return NextResponse.json({ error: 'Brand not found' }, { status: 404 })
     }
 
-    return NextResponse.json(brand)
+    // Get filtered backlink count
+    const backlinkCount = await prisma.backlink.count({
+      where: {
+        brandId: id,
+        ...(excludedDomains.length > 0 && {
+          NOT: { rootDomain: { in: excludedDomains } }
+        })
+      }
+    })
+
+    return NextResponse.json({
+      ...brand,
+      _count: {
+        ...brand._count,
+        backlinks: backlinkCount
+      }
+    })
   } catch (error) {
     console.error('Error fetching brand:', error)
     return NextResponse.json({ error: 'Failed to fetch brand' }, { status: 500 })

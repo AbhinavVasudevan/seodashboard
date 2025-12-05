@@ -48,6 +48,7 @@ interface Backlink {
 interface HiddenCounts {
   spam: number
   freeAffiliate: number
+  freeLink: number
   total: number
 }
 
@@ -105,7 +106,7 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
   const [totalSpent, setTotalSpent] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [hiddenCounts, setHiddenCounts] = useState<HiddenCounts>({ spam: 0, freeAffiliate: 0, total: 0 })
+  const [hiddenCounts, setHiddenCounts] = useState<HiddenCounts>({ spam: 0, freeAffiliate: 0, freeLink: 0, total: 0 })
   const [categoryFilter, setCategoryFilter] = useState<'FREE_AFFILIATE' | 'FREE_LINK' | ''>('')
   const [isBlocking, setIsBlocking] = useState<string | null>(null)
   const [showCategoryModal, setShowCategoryModal] = useState<{ domain: string } | null>(null)
@@ -155,7 +156,7 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
         setTotalPages(data.totalPages)
         setAvgDR(data.avgDR)
         setTotalSpent(data.totalSpent)
-        setHiddenCounts(data.hiddenCounts || { spam: 0, freeAffiliate: 0, total: 0 })
+        setHiddenCounts(data.hiddenCounts || { spam: 0, freeAffiliate: 0, freeLink: 0, total: 0 })
       }
     } catch (error) {
       console.error('Error fetching backlinks:', error)
@@ -509,7 +510,7 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
 
       <div className="page-content">
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
           <div className="stat-card">
             <div className="stat-value text-foreground">{total.toLocaleString()}</div>
             <div className="stat-label">Total Backlinks</div>
@@ -544,6 +545,21 @@ export default function BrandBacklinksPage({ params }: { params: Promise<{ id: s
                 <div className="stat-label">{categoryFilter === 'FREE_AFFILIATE' ? 'Viewing Free Affiliates' : 'Free Affiliates'}</div>
               </div>
               <GiftIcon className={`h-5 w-5 text-purple-400 transition-opacity ${categoryFilter === 'FREE_AFFILIATE' ? 'opacity-100' : 'opacity-50'}`} />
+            </div>
+          </button>
+          <button
+            onClick={() => {
+              setCategoryFilter(categoryFilter === 'FREE_LINK' ? '' : 'FREE_LINK')
+              setPage(1)
+            }}
+            className={`stat-card hover:shadow-md transition-all text-left ${categoryFilter === 'FREE_LINK' ? 'ring-2 ring-green-500' : ''}`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="stat-value text-green-500">{hiddenCounts.freeLink}</div>
+                <div className="stat-label">{categoryFilter === 'FREE_LINK' ? 'Viewing Free Links' : 'Free Links'}</div>
+              </div>
+              <LinkIcon className={`h-5 w-5 text-green-400 transition-opacity ${categoryFilter === 'FREE_LINK' ? 'opacity-100' : 'opacity-50'}`} />
             </div>
           </button>
         </div>

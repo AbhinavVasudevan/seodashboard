@@ -5,13 +5,21 @@ import { authOptions } from '@/lib/auth-options'
 
 export async function GET() {
   try {
+    // Get categorized domains to exclude from backlink counts
+    const categorizedDomains = await prisma.blockedDomain.findMany({
+      select: { domain: true, type: true }
+    })
+
+    const excludedDomains = categorizedDomains
+      .filter(d => d.type === 'SPAM' || d.type === 'FREE_AFFILIATE' || d.type === 'FREE_LINK')
+      .map(d => d.domain)
+
     const brands = await prisma.brand.findMany({
       include: {
         _count: {
           select: {
             apps: true,
             keywords: true,
-            backlinks: true,
             articles: true,
           },
         },
@@ -21,7 +29,29 @@ export async function GET() {
       },
     })
 
-    return NextResponse.json(brands)
+    // Get filtered backlink counts for each brand
+    const brandsWithFilteredCounts = await Promise.all(
+      brands.map(async (brand) => {
+        const backlinkCount = await prisma.backlink.count({
+          where: {
+            brandId: brand.id,
+            ...(excludedDomains.length > 0 && {
+              NOT: { rootDomain: { in: excludedDomains } }
+            })
+          }
+        })
+
+        return {
+          ...brand,
+          _count: {
+            ...brand._count,
+            backlinks: backlinkCount
+          }
+        }
+      })
+    )
+
+    return NextResponse.json(brandsWithFilteredCounts)
   } catch (error) {
     console.error('Error fetching brands:', error)
     return NextResponse.json(
