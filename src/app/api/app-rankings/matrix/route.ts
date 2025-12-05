@@ -37,13 +37,16 @@ export async function GET(request: NextRequest) {
         orderBy: { name: 'asc' },
       }),
 
-      // Get all keywords
+      // Get all keywords with volume data
       prisma.keyword.findMany({
         select: {
           id: true,
           keyword: true,
           country: true,
           appId: true,
+          traffic: true,
+          iosSearchVolume: true,
+          androidSearchVolume: true,
         },
       }),
 
@@ -90,10 +93,13 @@ export async function GET(request: NextRequest) {
       prevRankingsMap.set(key, r.rank)
     })
 
-    // Build keyword rows map with changes
+    // Build keyword rows map with changes and volume data
     const keywordRowsMap = new Map<string, {
       keyword: string
       country: string
+      traffic: number | null
+      iosSearchVolume: number | null
+      androidSearchVolume: number | null
       appRankings: Record<string, { rank: number | null; prevRank: number | null; change: number | null }>
     }>()
 
@@ -106,6 +112,9 @@ export async function GET(request: NextRequest) {
         keywordRowsMap.set(key, {
           keyword: kw.keyword,
           country: kw.country,
+          traffic: kw.traffic,
+          iosSearchVolume: kw.iosSearchVolume,
+          androidSearchVolume: kw.androidSearchVolume,
           appRankings: {},
         })
       }

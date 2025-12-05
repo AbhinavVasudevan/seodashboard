@@ -23,6 +23,9 @@ interface RankingData {
 interface KeywordRow {
   keyword: string
   country: string
+  traffic: number | null
+  iosSearchVolume: number | null
+  androidSearchVolume: number | null
   appRankings: { [appId: string]: RankingData }
 }
 
@@ -359,6 +362,12 @@ export default function AppRankingsPage() {
                       <th className="sticky left-0 z-20 bg-muted/50 px-4 py-3 text-left text-xs font-semibold text-muted-foreground border-r border-border">
                         Keyword
                       </th>
+                      <th className="px-2 py-3 text-right text-xs font-semibold text-muted-foreground min-w-[60px]">
+                        Traffic
+                      </th>
+                      <th className="px-2 py-3 text-right text-xs font-semibold text-muted-foreground min-w-[50px] border-r border-border">
+                        {selectedStore === 'IOS' ? 'iOS' : 'Android'}
+                      </th>
                       {filteredApps.map(app => (
                         <th key={app.id} className="px-2 py-3 text-center min-w-[100px]">
                           <div className="flex flex-col items-center gap-1">
@@ -384,6 +393,12 @@ export default function AppRankingsPage() {
                       <tr key={`${row.keyword}-${row.country}`} className="hover:bg-muted/30 transition-colors">
                         <td className="sticky left-0 z-10 px-4 py-2.5 whitespace-nowrap text-sm font-medium text-foreground border-r border-border bg-card">
                           {row.keyword}
+                        </td>
+                        <td className="px-2 py-2.5 text-right text-xs text-muted-foreground tabular-nums">
+                          {row.traffic?.toLocaleString() || '-'}
+                        </td>
+                        <td className="px-2 py-2.5 text-right text-xs text-muted-foreground tabular-nums border-r border-border">
+                          {(selectedStore === 'IOS' ? row.iosSearchVolume : row.androidSearchVolume)?.toLocaleString() || '-'}
                         </td>
                         {filteredApps.map(app => {
                           const data = row.appRankings[app.id]
